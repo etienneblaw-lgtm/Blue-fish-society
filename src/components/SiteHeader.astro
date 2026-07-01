@@ -1,0 +1,16 @@
+---
+interface Props {
+  active?: 'terminal' | 'tracks' | 'about';
+}
+
+const { active } = Astro.props;
+---
+
+<header class="site-header">
+  <div class="site-brand">BLUEFISH SOCIETY</div>
+  <nav class="site-nav" aria-label="Navigation principale">
+    <a href="/" class:list={[active === 'terminal' && 'active']}>← TERMINAL</a>
+    <a href="/tracks" class:list={[active === 'tracks' && 'active']}>TRACK ARCHIVE</a>
+    <a href="/#manifesto-anchor" class:list={[active === 'about' && 'active']}>MANIFESTO</a>
+  </nav>
+</header>

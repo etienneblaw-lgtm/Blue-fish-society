@@ -1,0 +1,177 @@
+---
+import type { Track } from '@/data/tracks';
+import { genTrackArt } from '@/lib/ascii';
+
+interface Props {
+  track: Track;
+  index: number;
+}
+
+const { track, index } = Astro.props;
+const art = genTrackArt(track.id, track.type);
+---
+
+<article class="track-card" data-track-card data-track-id={track.id} data-track-title={track.title} data-track-artist={track.artist} data-track-src={track.src} data-track-meta={`${track.year} · ${track.type} · ${track.tags.join(', ')}`}>
+  <a class="card-link" href={`/mixes/${track.slug}`} aria-label={`Ouvrir ${track.title}`}></a>
+  <div class="card-art" aria-hidden="true">
+    <pre>{art}</pre>
+    <div class="wave">
+      {Array.from({ length: 12 }).map((_, i) => <span style={`--i:${i}`}></span>)}
+    </div>
+  </div>
+  <div class="card-inner">
+    <div class="card-number">[{String(index + 1).padStart(2, '0')}]</div>
+    <h2>{track.title.toUpperCase()}</h2>
+    <div class="card-meta">{track.artist} · {track.year} · {track.type}</div>
+    <div class="card-tags">
+      {track.tags.map((tag) => <span>{tag}</span>)}
+    </div>
+    <p>{track.desc}</p>
+    <button class="play-btn" type="button" disabled={!track.src} data-play-button>{track.src ? '▶ PLAY' : '⊘ NO SOURCE'}</button>
+  </div>
+</article>
+
+<style>
+  .track-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--wano-black);
+    transition: background var(--dur-fast) var(--ease);
+  }
+
+  .track-card:hover { background: var(--surface-card-hover); }
+  .track-card.playing { background: var(--surface-active); }
+
+  .card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border: 0;
+    background: transparent;
+  }
+
+  .card-link:hover { background: transparent; }
+
+  .card-art {
+    position: relative;
+    height: 100px;
+    padding: 0.4rem 0.6rem;
+    overflow: hidden;
+    background: var(--surface-card-art);
+  }
+
+  .card-art pre {
+    color: var(--wano-green);
+    font-size: 0.62rem;
+    line-height: 1.05;
+    opacity: 0.35;
+    white-space: pre;
+    transition: opacity var(--dur-base) var(--ease);
+  }
+
+  .track-card:hover .card-art pre { opacity: 0.55; }
+  .track-card.playing .card-art pre { opacity: 0.8; }
+
+  .wave {
+    position: absolute;
+    right: 6px;
+    bottom: 4px;
+    left: 6px;
+    display: none;
+    align-items: flex-end;
+    gap: 2px;
+    height: 30px;
+  }
+
+  .track-card.playing .wave { display: flex; }
+
+  .wave span {
+    flex: 1;
+    height: 3px;
+    background: var(--wano-green);
+    opacity: 0.7;
+    animation: wano-wavebar calc(0.45s + var(--i) * 0.03s) ease-in-out infinite alternate;
+    animation-delay: calc(var(--i) * -0.06s);
+  }
+
+  .card-inner {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1rem;
+  }
+
+  .card-number {
+    color: var(--wano-green);
+    font-size: var(--text-xs);
+    opacity: 0.6;
+  }
+
+  h2 {
+    margin: 0;
+    color: var(--wano-white);
+    font-size: var(--text-md);
+    font-weight: var(--weight-normal);
+    line-height: var(--leading-snug);
+  }
+
+  .track-card.playing h2 { color: var(--wano-green); }
+
+  .card-meta {
+    color: var(--wano-white);
+    font-size: var(--text-xs);
+    opacity: 0.4;
+  }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .card-tags span {
+    border: 1px solid var(--wano-grey-800);
+    padding: 0.15rem 0.4rem;
+    color: var(--wano-grey-400);
+    font-size: 0.7rem;
+  }
+
+  p {
+    flex: 1;
+    margin: 0;
+    color: var(--wano-white);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    opacity: 0.55;
+  }
+
+  .play-btn {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    margin-top: 0.6rem;
+    padding: 0.55rem;
+    border: 1px solid var(--wano-grey-800);
+    border-radius: 0;
+    background: var(--wano-black);
+    color: var(--wano-grey-400);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-wide);
+    transition: var(--transition-hover);
+  }
+
+  .play-btn:hover:not(:disabled),
+  .track-card.playing .play-btn {
+    border-color: var(--wano-green);
+    background: var(--wano-green-005);
+    color: var(--wano-green);
+  }
+
+  .play-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+  }
+</style>

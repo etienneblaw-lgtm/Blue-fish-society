@@ -1,0 +1,148 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SiteHeader from '@/components/SiteHeader.astro';
+import BrandFish from '@/components/BrandFish.astro';
+import { tracks } from '@/data/tracks';
+import { genTrackArt } from '@/lib/ascii';
+
+export function getStaticPaths() {
+  return tracks.map((track) => ({ params: { slug: track.slug }, props: { track } }));
+}
+
+const { track } = Astro.props;
+const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
+---
+
+<BaseLayout title={`Bluefish Society — ${track.title}`} description={track.desc}>
+  <SiteHeader active="tracks" />
+  <main class="mix-page wano-scroll">
+    <section class="mix-shell">
+      <div class="mix-meta">
+        <a href="/tracks">← TRACK ARCHIVE</a>
+        <p class="eyebrow">TRANSMISSION {track.id}</p>
+        <h1>{track.title}</h1>
+        <p class="artist">{track.artist} · {track.year} · {track.type} · {track.duration}</p>
+        <p class="manifesto">{track.manifesto}</p>
+        <div class="tags">{track.tags.map((tag) => <span>{tag}</span>)}</div>
+        {track.src ? <audio controls preload="none" src={track.src}></audio> : <div class="no-source">⊘ SOURCE AUDIO EN ATTENTE</div>}
+      </div>
+      <div class="artwork" aria-label="Oeuvre ASCII du mix">
+        <pre>{art}</pre>
+        <BrandFish class="mix-fish" />
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .mix-page {
+    min-height: calc(100vh - 73px);
+    padding: 2rem;
+  }
+
+  .mix-shell {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) 1fr;
+    gap: 2rem;
+    max-width: 1300px;
+    margin: 0 auto;
+  }
+
+  .mix-meta,
+  .artwork {
+    border: 1px solid var(--wano-grey-800);
+    background: var(--wano-black);
+  }
+
+  .mix-meta {
+    padding: 1.5rem;
+  }
+
+  .eyebrow {
+    margin: 2rem 0 0.5rem;
+    color: var(--wano-green);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+  }
+
+  h1 {
+    margin: 0;
+    color: var(--bf-turquoise);
+    font-size: clamp(2rem, 7vw, 5rem);
+    line-height: 0.95;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+
+  .artist {
+    color: var(--wano-grey-300);
+    font-size: var(--text-sm);
+  }
+
+  .manifesto {
+    margin: 2rem 0;
+    color: var(--wano-white);
+    line-height: var(--leading-relaxed);
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .tags span {
+    border: 1px solid var(--wano-green-border);
+    background: var(--wano-green-005);
+    color: var(--wano-green-dim);
+    padding: 0.2rem 0.45rem;
+    font-size: var(--text-xs);
+  }
+
+  audio {
+    width: 100%;
+    filter: hue-rotate(130deg) saturate(0.6);
+  }
+
+  .no-source {
+    border: 1px solid var(--wano-grey-800);
+    color: var(--wano-grey-400);
+    padding: 0.85rem;
+    font-size: var(--text-sm);
+  }
+
+  .artwork {
+    position: relative;
+    min-height: 620px;
+    overflow: hidden;
+    padding: 2rem;
+    background:
+      linear-gradient(90deg, rgba(31, 243, 224, 0.04) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(31, 243, 224, 0.04) 1px, transparent 1px),
+      var(--wano-black);
+    background-size: 24px 24px;
+  }
+
+  .artwork pre {
+    color: var(--wano-green);
+    font-size: clamp(0.52rem, 1vw, 0.9rem);
+    line-height: 1.12;
+    opacity: 0.72;
+    white-space: pre;
+  }
+
+  .mix-fish {
+    position: absolute;
+    right: 2rem;
+    bottom: 2rem;
+    font-size: 9px;
+    opacity: 0.24;
+  }
+
+  @media (max-width: 900px) {
+    .mix-page { padding: 1rem; }
+    .mix-shell { grid-template-columns: 1fr; }
+    .artwork { min-height: auto; overflow-x: auto; }
+  }
+</style>

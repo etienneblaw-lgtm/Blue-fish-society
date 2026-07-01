@@ -1,0 +1,26 @@
+---
+interface Props {
+  class?: string;
+}
+
+const className = Astro.props.class ?? '';
+const fish = String.raw`                 __________
+             _,-'          '-._
+    \\      /   ~ ~ ~ ~ ~       '.
+     \\____/  ~ ~ ~ ~ ~ ~ (o)     \
+     //    \  ~ ~ ~ ~ ~ ~ ~ ~     ->
+    //      '._   ~ ~ ~ ~ ~    _,-'
+                 '----------'`;
+---
+
+<pre class={`brand-fish bf-glow ${className}`}>{fish}</pre>
+
+<style>
+  .brand-fish {
+    margin: 0;
+    color: var(--bf-turquoise);
+    font-family: var(--font-mono);
+    line-height: 1;
+    white-space: pre;
+  }
+</style>

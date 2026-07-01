@@ -1,0 +1,130 @@
+@import './tokens.css';
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--wano-black);
+  color: var(--wano-white);
+  font-family: var(--font-base);
+  font-size: 16px;
+  line-height: var(--leading-normal);
+}
+
+body { overflow-x: hidden; }
+
+a {
+  color: var(--wano-green);
+  text-decoration: none;
+  border-bottom: 1px solid var(--wano-green);
+  font-weight: var(--weight-bold);
+}
+
+a:hover {
+  background: var(--wano-green);
+  color: var(--wano-black);
+}
+
+pre {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: var(--wano-green);
+  color: var(--wano-black);
+}
+
+.wano-scroll::-webkit-scrollbar { width: 4px; }
+.wano-scroll::-webkit-scrollbar-track { background: var(--wano-black); }
+.wano-scroll::-webkit-scrollbar-thumb { background: var(--wano-grey-700); }
+.wano-scroll::-webkit-scrollbar-thumb:hover { background: var(--wano-green); }
+
+.screen {
+  min-height: 100vh;
+  background: var(--wano-black);
+}
+
+.container-terminal {
+  max-width: var(--container-text);
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.terminal-box {
+  margin: 2rem 0;
+  color: var(--wano-white);
+  white-space: pre-wrap;
+}
+
+.highlight { color: var(--wano-green); font-weight: var(--weight-bold); }
+.brand { color: var(--bf-turquoise); font-weight: var(--weight-bold); }
+
+.terminal-input {
+  background: var(--wano-black);
+  border: 0;
+  border-bottom: 1px solid var(--wano-green);
+  color: var(--wano-white);
+  caret-color: var(--wano-green);
+  outline: none;
+  padding: 0.2rem 0;
+  min-width: 13rem;
+}
+
+.terminal-input::placeholder { color: var(--wano-grey-300); }
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.5rem 2rem;
+  background: var(--wano-black);
+  border-bottom: 1px solid var(--wano-grey-800);
+}
+
+.site-brand {
+  color: var(--bf-turquoise);
+  letter-spacing: var(--tracking-wide);
+  font-size: var(--text-lg);
+}
+
+.site-nav {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.site-nav a {
+  color: var(--wano-grey-300);
+  border-color: transparent;
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.site-nav a:hover,
+.site-nav a.active {
+  color: var(--wano-green);
+  background: transparent;
+  border-color: var(--wano-green);
+  opacity: 1;
+}
+
+@media (max-width: 700px) {
+  .container-terminal { padding: 1rem; }
+  .terminal-box { font-size: 0.76rem; overflow-x: auto; white-space: pre; }
+  .site-header { padding: 1rem; }
+}
