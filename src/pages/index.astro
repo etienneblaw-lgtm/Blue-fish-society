@@ -262,12 +262,14 @@ Bienvenue, citoyen.
   .watermark-fish {
     display: block;
     width: fit-content;
-    max-width: min(42rem, 100%);
-    margin: 1rem auto 0;
+    max-width: none;
+    margin: -1rem auto 0;
     overflow: hidden;
-    font-size: 4px;
-    opacity: 0.28;
+    font-size: 3px;
+    opacity: 0.22;
     pointer-events: none;
+    transform: translateX(-7%) scale(0.58);
+    transform-origin: top center;
   }
 
   .manifesto-wrap {
