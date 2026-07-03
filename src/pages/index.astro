@@ -253,16 +253,21 @@ Bienvenue, citoyen.
     position: fixed;
     right: 2rem;
     bottom: 1.4rem;
-    font-size: 7px;
-    opacity: 0.55;
+    max-width: 28rem;
+    overflow: hidden;
+    font-size: 3px;
+    opacity: 0.38;
   }
 
   .watermark-fish {
-    position: fixed;
-    top: 5.5rem;
-    right: 2.5rem;
-    font-size: 8px;
-    opacity: 0.16;
+    display: block;
+    width: fit-content;
+    max-width: min(42rem, 100%);
+    margin: 1rem auto 0;
+    overflow: hidden;
+    font-size: 4px;
+    opacity: 0.28;
+    pointer-events: none;
   }
 
   .manifesto-wrap {
