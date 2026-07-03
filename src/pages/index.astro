@@ -249,7 +249,7 @@ Bienvenue, citoyen.
     margin-top: 1rem;
   }
 
-  .corner-fish {
+  :global(.corner-fish) {
     position: fixed;
     right: 2rem;
     bottom: 1.4rem;
@@ -259,7 +259,7 @@ Bienvenue, citoyen.
     opacity: 0.38;
   }
 
-  .watermark-fish {
+  :global(.watermark-fish) {
     display: block;
     width: fit-content;
     max-width: none;
@@ -314,8 +314,8 @@ Bienvenue, citoyen.
   }
 
   @media (max-width: 700px) {
-    .corner-fish,
-    .watermark-fish { display: none; }
+    :global(.corner-fish),
+    :global(.watermark-fish) { display: none; }
     .manifesto-wrap { padding: 1.5rem 1rem 5rem; }
     #manifesto-text { font-size: var(--text-base); }
   }
