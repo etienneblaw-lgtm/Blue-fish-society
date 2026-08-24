@@ -1,0 +1,270 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Bluefish Society — Mailing List"
+  description="Receive Bluefish Society transmissions about music and electronic scenes."
+>
+  <main class="mailing-page wano-scroll">
+    <a class="back-link" href="/menu">← BACK TO HOMEPAGE</a>
+
+    <section class="mailing-terminal" aria-labelledby="mailing-title">
+      <h1 id="mailing-title" class="sr-only">Bluefish Society mailing list</h1>
+      <div id="terminal-output" class="terminal-output" aria-live="polite"></div>
+
+      <form id="subscribe-form" class="subscribe-form" hidden>
+        <label for="email">EMAIL</label>
+        <div class="input-row">
+          <span aria-hidden="true">&gt;</span>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="your@email.com"
+            autocomplete="email"
+            required
+            aria-describedby="form-status"
+          />
+        </div>
+        <button type="submit">SUBSCRIBE</button>
+      </form>
+
+      <div id="form-status" class="form-status" aria-live="polite" role="status"></div>
+    </section>
+  </main>
+
+  <script>
+    const output = document.getElementById('terminal-output');
+    const form = document.getElementById('subscribe-form');
+    const emailInput = document.getElementById('email');
+    const status = document.getElementById('form-status');
+    const cursor = document.createElement('span');
+    cursor.className = 'typewriter-cursor wano-cursor';
+    cursor.setAttribute('aria-hidden', 'true');
+
+    const lines = [
+      'We send 2–3 long-form emails per year.',
+      'We talk about music and the electronic music scene in general.',
+      'But we also share thoughts and perspectives that we find interesting.',
+      'Formats may vary depending on the mood.',
+      'We also send an email whenever a new episode is released.',
+      'Enter your mail to join The Society :)',
+    ];
+    let skipCurrentLine = false;
+    let typewriterFinished = false;
+
+    function wait(milliseconds) {
+      return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    }
+
+    async function typeLine(text) {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      const textNode = document.createTextNode('');
+      line.append(textNode, cursor);
+      output.append(line);
+
+      for (let index = 0; index <= text.length && !skipCurrentLine; index += 1) {
+        textNode.textContent = text.slice(0, index);
+        await wait(24);
+      }
+
+      const wasSkipped = skipCurrentLine;
+      if (wasSkipped) textNode.textContent = text;
+      skipCurrentLine = false;
+
+      cursor.remove();
+      if (!wasSkipped) await wait(text ? 180 : 80);
+    }
+
+    async function startTypewriter() {
+      for (const line of lines) await typeLine(line);
+      typewriterFinished = true;
+      document.removeEventListener('keydown', skipTypewriter);
+      document.removeEventListener('pointerdown', skipTypewriter);
+      form.hidden = false;
+      emailInput.focus();
+    }
+
+    function skipTypewriter() {
+      if (!typewriterFinished) skipCurrentLine = true;
+    }
+
+    document.addEventListener('keydown', skipTypewriter);
+    document.addEventListener('pointerdown', skipTypewriter);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+
+      const button = form.querySelector('button');
+      button.disabled = true;
+      emailInput.disabled = true;
+      status.textContent = 'SUBSCRIPTION IN PROGRESS...';
+      status.className = 'form-status is-pending';
+
+      try {
+        const response = await fetch('/api/newsletter/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailInput.value.trim() }),
+        });
+
+        if (!response.ok) throw new Error('Subscription request failed');
+
+        form.hidden = true;
+        status.className = 'form-status is-success';
+        status.innerHTML = 'Merci beaucoup.<br><br>Votre inscription a bien été enregistrée.<br>Vous allez recevoir un email pour confirmer votre inscription.';
+      } catch {
+        button.disabled = false;
+        emailInput.disabled = false;
+        status.textContent = 'La transmission a échoué. Vérifiez votre adresse ou réessayez plus tard.';
+        status.className = 'form-status is-error';
+      }
+    });
+
+    startTypewriter();
+  </script>
+</BaseLayout>
+
+<style>
+  .mailing-page {
+    min-height: 100vh;
+    padding: 6vh 5vw;
+    background: var(--wano-black);
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: clamp(3rem, 10vh, 8rem);
+    border-color: transparent;
+    color: var(--wano-grey-400);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-normal);
+  }
+
+  .back-link:hover,
+  .back-link:focus-visible {
+    border-color: var(--wano-green);
+    background: transparent;
+    color: var(--wano-green);
+  }
+
+  .mailing-terminal {
+    width: min(100%, 760px);
+    color: var(--wano-green);
+    font-size: clamp(0.9rem, 1.6vw, 1.08rem);
+    line-height: var(--leading-relaxed);
+  }
+
+  .terminal-output {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .terminal-line {
+    min-height: 1.8em;
+    white-space: pre-wrap;
+  }
+
+  .typewriter-cursor {
+    display: inline-block;
+    width: 0.58em;
+    height: 1.1em;
+    margin-left: 0.1em;
+    background: var(--wano-green);
+    vertical-align: text-bottom;
+  }
+
+  .subscribe-form[hidden] { display: none; }
+
+  .subscribe-form {
+    display: grid;
+    gap: 0.65rem;
+    width: min(100%, 560px);
+    margin-top: 0.25rem;
+  }
+
+  .subscribe-form label {
+    color: var(--wano-green-dim);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+  }
+
+  .input-row {
+    display: flex;
+    align-items: baseline;
+    color: var(--wano-green);
+  }
+
+  .input-row > span:first-child { margin-right: 0.55rem; }
+
+  .input-row input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    border-bottom: 1px solid var(--wano-green);
+    border-radius: 0;
+    outline: none;
+    padding: 0.2rem 0;
+    background: transparent;
+    color: var(--wano-white);
+    caret-color: var(--wano-green);
+    font-size: inherit;
+  }
+
+  .input-row input::placeholder { color: var(--wano-grey-500); }
+
+  .input-row input:focus { box-shadow: 0 1px 0 var(--wano-green); }
+
+  .subscribe-form button {
+    justify-self: start;
+    margin-top: 0.65rem;
+    border: 1px solid var(--wano-green);
+    border-radius: 0;
+    padding: 0.45rem 0.7rem;
+    background: transparent;
+    color: var(--wano-green);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .subscribe-form button:hover,
+  .subscribe-form button:focus-visible {
+    background: var(--wano-green);
+    color: var(--wano-black);
+    outline: none;
+  }
+
+  .subscribe-form button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+
+  .form-status {
+    max-width: 620px;
+    margin-top: 2rem;
+    line-height: var(--leading-relaxed);
+  }
+
+  .form-status.is-pending { color: var(--wano-green-dim); }
+  .form-status.is-success { color: var(--wano-green); }
+  .form-status.is-error { color: var(--wano-error); }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 700px) {
+    .mailing-page { padding: 1.25rem 1rem 2rem; }
+    .back-link { margin-bottom: 4rem; }
+    .mailing-terminal { font-size: 0.82rem; }
+  }
+</style>

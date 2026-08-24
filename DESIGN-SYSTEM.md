@@ -6,7 +6,7 @@ Source : `../WANO Terminal Design System`.
 
 - Site terminal, pas site vitrine.
 - Fond noir pur.
-- Monospace unique : `Courier New`.
+- Monospace unique : `JetBrains Mono`.
 - Accent fonctionnel turquoise phosphore : `#1ff3e0`.
 - Accent marque Bluefish : `#1ec8c8`.
 - Pas d'emoji.
@@ -31,7 +31,8 @@ Les noms gardent le prefixe historique `--wano-*`, mais les valeurs visibles son
 
 ## Pages MVP
 
-- `/` : entree terminal nominative, manifesto, dashboard.
+- `/` : sas d'entree nominatif.
+- `/menu` : menu principal apres identification.
 - `/tracks` : catalogue des mixes, recherche, filtres, player audio global.
 - `/mixes/[slug]` : page detail de mix, base pour les oeuvres ASCII uniques.
 

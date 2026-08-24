@@ -8,26 +8,27 @@ interface Props {
 }
 
 const { track, index } = Astro.props;
-const art = genTrackArt(track.id, track.type);
+const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
 ---
 
-<article class="track-card" data-track-card data-track-id={track.id} data-track-title={track.title} data-track-artist={track.artist} data-track-src={track.src} data-track-meta={`${track.year} · ${track.type} · ${track.tags.join(', ')}`}>
+<article class:list={['track-card', `track-${track.type}`]} data-track-card data-track-id={track.id} data-track-title={track.title} data-track-artist={track.artist} data-track-src={track.src} data-track-meta={`${track.year} · ${track.type} · ${track.tags.join(', ')}`}>
   <a class="card-link" href={`/mixes/${track.slug}`} aria-label={`Ouvrir ${track.title}`}></a>
   <div class="card-art" aria-hidden="true">
+    <div class="art-register">BF/{String(index + 1).padStart(3, '0')}</div>
+    <div class="type-tag">{track.type}</div>
     <pre>{art}</pre>
     <div class="wave">
-      {Array.from({ length: 12 }).map((_, i) => <span style={`--i:${i}`}></span>)}
+      {Array.from({ length: 18 }).map((_, i) => <span style={`--i:${i}`}></span>)}
     </div>
+    <div class="art-caption">PUBLIC TRANSMISSION / {track.year}</div>
   </div>
   <div class="card-inner">
-    <div class="card-number">[{String(index + 1).padStart(2, '0')}]</div>
     <h2>{track.title.toUpperCase()}</h2>
-    <div class="card-meta">{track.artist} · {track.year} · {track.type}</div>
-    <div class="card-tags">
-      {track.tags.map((tag) => <span>{tag}</span>)}
+    <div class="card-artist">{track.artist}</div>
+    <div class="card-footer">
+      <div class="card-meta">{track.duration} · {track.tags.join(' / ')}</div>
+      <button class="play-btn" type="button" disabled={!track.src} data-play-button aria-label={track.src ? `Lire ${track.title}` : `Source audio indisponible pour ${track.title}`}>{track.src ? '▶' : '⊘'}</button>
     </div>
-    <p>{track.desc}</p>
-    <button class="play-btn" type="button" disabled={!track.src} data-play-button>{track.src ? '▶ PLAY' : '⊘ NO SOURCE'}</button>
   </div>
 </article>
 
@@ -36,12 +37,21 @@ const art = genTrackArt(track.id, track.type);
     position: relative;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    border: 1px solid var(--wano-green-border);
     background: var(--wano-black);
-    transition: background var(--dur-fast) var(--ease);
+    transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
   }
 
-  .track-card:hover { background: var(--surface-card-hover); }
-  .track-card.playing { background: var(--surface-active); }
+  .track-card:hover {
+    border-color: var(--wano-green);
+    background: var(--surface-card-hover);
+  }
+
+  .track-card.playing {
+    border-color: var(--wano-green);
+    background: var(--surface-active);
+  }
 
   .card-link {
     position: absolute;
@@ -55,33 +65,79 @@ const art = genTrackArt(track.id, track.type);
 
   .card-art {
     position: relative;
-    height: 100px;
-    padding: 0.4rem 0.6rem;
+    aspect-ratio: 1 / 1.04;
     overflow: hidden;
     background: var(--surface-card-art);
+    border-bottom: 1px solid var(--wano-green-border);
   }
 
   .card-art pre {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max-content;
+    min-width: 100%;
+    transform: translate(-50%, -50%) scale(1.08);
     color: var(--wano-green);
-    font-size: 0.62rem;
-    line-height: 1.05;
-    opacity: 0.35;
+    font-size: clamp(0.42rem, 0.74vw, 0.66rem);
+    line-height: 0.94;
+    opacity: 0.62;
     white-space: pre;
-    transition: opacity var(--dur-base) var(--ease);
+    transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
   }
 
-  .track-card:hover .card-art pre { opacity: 0.55; }
-  .track-card.playing .card-art pre { opacity: 0.8; }
+  .track-live .card-art pre { transform: translate(-53%, -48%) scale(1.22); }
+  .track-unreleased .card-art pre { transform: translate(-48%, -52%) scale(1.15); opacity: 0.48; }
+
+  .track-card:hover .card-art pre {
+    opacity: 0.86;
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+
+  .track-card.playing .card-art pre { opacity: 1; }
+
+  .art-register,
+  .type-tag,
+  .art-caption {
+    position: absolute;
+    z-index: 1;
+    color: var(--wano-green);
+    background: var(--wano-black);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .art-register {
+    top: 0.55rem;
+    left: 0.6rem;
+    opacity: 0.58;
+  }
+
+  .type-tag {
+    top: 0.35rem;
+    right: 0.35rem;
+    padding: 0.22rem 0.45rem;
+    border: 1px solid var(--wano-green-border);
+    text-transform: uppercase;
+  }
+
+  .art-caption {
+    right: 0.6rem;
+    bottom: 0.5rem;
+    padding-left: 0.3rem;
+    opacity: 0.7;
+  }
 
   .wave {
     position: absolute;
-    right: 6px;
-    bottom: 4px;
-    left: 6px;
+    z-index: 2;
+    right: 0.6rem;
+    bottom: 2rem;
+    left: 0.6rem;
     display: none;
     align-items: flex-end;
     gap: 2px;
-    height: 30px;
+    height: 46px;
   }
 
   .track-card.playing .wave { display: flex; }
@@ -97,69 +153,58 @@ const art = genTrackArt(track.id, track.type);
 
   .card-inner {
     display: flex;
-    flex: 1;
     flex-direction: column;
-    gap: 0.6rem;
-    padding: 1rem;
-  }
-
-  .card-number {
-    color: var(--wano-green);
-    font-size: var(--text-xs);
-    opacity: 0.6;
+    gap: 0.18rem;
+    min-height: 104px;
+    padding: 0.72rem 0.78rem 0.68rem;
   }
 
   h2 {
     margin: 0;
-    color: var(--wano-white);
+    color: var(--wano-green);
     font-size: var(--text-md);
-    font-weight: var(--weight-normal);
+    font-weight: var(--weight-bold);
     line-height: var(--leading-snug);
   }
 
-  .track-card.playing h2 { color: var(--wano-green); }
-
-  .card-meta {
-    color: var(--wano-white);
-    font-size: var(--text-xs);
-    opacity: 0.4;
-  }
-
-  .card-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-  }
-
-  .card-tags span {
-    border: 1px solid var(--wano-grey-800);
-    padding: 0.15rem 0.4rem;
-    color: var(--wano-grey-400);
-    font-size: 0.7rem;
-  }
-
-  p {
-    flex: 1;
-    margin: 0;
+  .card-artist {
     color: var(--wano-white);
     font-size: var(--text-sm);
-    line-height: var(--leading-normal);
-    opacity: 0.55;
+    opacity: 0.76;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.7rem;
+    margin-top: auto;
+  }
+
+  .card-meta {
+    min-width: 0;
+    color: var(--wano-white);
+    font-size: var(--text-2xs);
+    line-height: var(--leading-snug);
+    opacity: 0.46;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .play-btn {
     position: relative;
     z-index: 2;
-    width: 100%;
-    margin-top: 0.6rem;
-    padding: 0.55rem;
-    border: 1px solid var(--wano-grey-800);
+    flex: 0 0 28px;
+    width: 28px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--wano-green-border);
     border-radius: 0;
     background: var(--wano-black);
-    color: var(--wano-grey-400);
+    color: var(--wano-green);
     cursor: pointer;
-    font-size: var(--text-sm);
-    letter-spacing: var(--tracking-wide);
+    font-size: var(--text-xs);
     transition: var(--transition-hover);
   }
 
@@ -173,5 +218,9 @@ const art = genTrackArt(track.id, track.type);
   .play-btn:disabled {
     cursor: not-allowed;
     opacity: 0.3;
+  }
+
+  @media (max-width: 700px) {
+    .card-art pre { font-size: clamp(0.48rem, 2vw, 0.72rem); }
   }
 </style>

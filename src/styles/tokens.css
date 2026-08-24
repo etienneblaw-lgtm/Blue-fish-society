@@ -52,7 +52,7 @@
   --brand-gradient: linear-gradient(135deg, var(--bf-turquoise-bright) 0%, var(--bf-turquoise) 48%, var(--bf-turquoise-deep) 100%);
   --danger: var(--wano-error);
 
-  --font-mono: 'Courier New', Courier, ui-monospace, monospace;
+  --font-mono: 'JetBrains Mono', 'Courier New', Courier, ui-monospace, monospace;
   --font-base: var(--font-mono);
 
   --text-2xs: 0.68rem;

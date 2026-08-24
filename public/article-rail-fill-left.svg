@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 396 32" preserveAspectRatio="none" shape-rendering="crispEdges">
+  <g fill="none" stroke="#14525c" stroke-width="1">
+    <path d="M79 0V32M317 0V32" stroke-dasharray="2 3" />
+    <path d="M79 16H113M283 16H317" stroke-dasharray="2 4" />
+    <rect x="76" y="13" width="6" height="6" fill="#15c8bb" stroke="none" />
+    <rect x="314" y="13" width="6" height="6" fill="#15c8bb" stroke="none" />
+  </g>
+</svg>

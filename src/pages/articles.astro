@@ -1,0 +1,274 @@
+---
+import ArchiveOrnament from '@/components/ArchiveOrnament.astro';
+import { articlePreviews } from '@/data/articles';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Bluefish Society — Articles" description="Texts that we feel. Newsletter archives.">
+  <main class="articles-page wano-scroll">
+    <div class="articles-frame">
+      <a class="articles-menu" href="/menu">← BACK TO HOMEPAGE</a>
+      <header class="articles-hero" aria-label="Bluefish articles">
+        <div class="mask-window">
+          <img src="/Tragédie.png" alt="Masque de la tragédie" />
+        </div>
+        <div class="read-mark">
+          <img src="/READ.png" alt="Read" />
+        </div>
+        <div class="mask-window">
+          <img src="/Comédie.png" alt="Masque de la comédie" />
+        </div>
+      </header>
+
+      <section class="articles-body" aria-label="Archive des articles">
+        <aside class="side-column side-column-left" aria-hidden="true">
+          <div class="rail-art">
+            <img src="/colonne_gauche_phare_temple_centree.png" alt="" />
+          </div>
+        </aside>
+
+        <section class="archive-stage" aria-label="Articles disponibles">
+          <div class="rail-top-offset" aria-hidden="true"></div>
+          <ArchiveOrnament variant="divider" />
+
+          <div class="archive-list">
+            {articlePreviews.map((article, index) => (
+              <div class="article-record">
+                <article class="archive-entry">
+                  <div>
+                    <h1 class="entry-title">{article.title}</h1>
+                    <p>{article.subtitle}</p>
+                    <time datetime={article.date}>{article.date.split('-').reverse().join('.')}</time>
+                  </div>
+                  <span class="entry-action">READ</span>
+                </article>
+                {index < articlePreviews.length - 1 && <ArchiveOrnament variant="divider" />}
+              </div>
+            ))}
+          </div>
+
+          <div class="archive-spacer" aria-hidden="true"></div>
+          <ArchiveOrnament variant="divider" />
+        </section>
+
+        <aside class="side-column side-column-right" aria-hidden="true">
+          <div class="rail-art">
+            <img src="/colonne_droite_navire_crique_centree.png" alt="" />
+          </div>
+        </aside>
+      </section>
+
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .articles-page {
+    min-height: 100vh;
+    padding: clamp(0.75rem, 2vw, 2rem);
+    background: var(--wano-black);
+  }
+
+  .articles-frame {
+    --rail-width: clamp(190px, 20vw, 280px);
+    --rail-top-offset: clamp(71px, 7.48vw, 105px);
+    --rail-bottom-offset: clamp(71px, 7.48vw, 105px);
+    --menu-offset: clamp(28px, 2.6vw, 42px);
+    width: min(100%, 1440px);
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .articles-menu {
+    position: absolute;
+    top: calc(var(--rail-width) + var(--menu-offset));
+    left: 50%;
+    z-index: 1;
+    border-color: transparent;
+    color: var(--bf-turquoise-bright);
+    font-size: var(--text-sm);
+    opacity: 0.9;
+    text-shadow: 0 0 5px rgba(95, 240, 230, 0.35);
+    transform: translateX(-50%);
+  }
+
+  .articles-menu:hover,
+  .articles-menu:focus-visible {
+    border-color: var(--bf-turquoise-bright);
+    background: transparent;
+    color: var(--bf-turquoise-bright);
+    opacity: 1;
+  }
+
+  .articles-hero,
+  .articles-body {
+    display: grid;
+    grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--rail-width);
+    width: 100%;
+  }
+
+  .articles-hero {
+    height: var(--rail-width);
+    align-items: stretch;
+  }
+
+  .mask-window {
+    position: relative;
+    overflow: visible;
+  }
+
+  .read-mark { overflow: hidden; }
+
+  .mask-window::after {
+    position: absolute;
+    bottom: calc(0px - var(--rail-top-offset) - 8px);
+    left: 50%;
+    z-index: 1;
+    width: 1px;
+    height: calc(var(--rail-top-offset) + 8px);
+    content: '';
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--wano-green) 0 2px,
+      transparent 2px 6px
+    );
+    transform: translateX(-50%);
+  }
+
+  .mask-window img,
+  .side-column img {
+    display: block;
+    width: 100%;
+  }
+
+  .mask-window img { height: 100%; }
+
+  .read-mark {
+    display: grid;
+    place-items: center;
+  }
+
+  .read-mark img {
+    display: block;
+    width: min(100%, 600px);
+    height: auto;
+  }
+
+  .articles-body {
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .side-column {
+    position: relative;
+    align-self: stretch;
+    overflow: hidden;
+  }
+
+  .rail-art {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .side-column-left { background: url('/article-rail-fill-left.svg') center top / 100% 32px repeat-y; }
+  .side-column-right { background: url('/article-rail-fill-right.svg') center top / 100% 32px repeat-y; }
+
+  .archive-stage {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    min-height: clamp(900px, 89vw, 1287px);
+    color: var(--wano-white);
+    font-family: var(--font-base);
+    font-weight: var(--weight-normal);
+  }
+
+  .rail-top-offset { height: var(--rail-top-offset); }
+
+  .archive-entry,
+  .footer-row {
+    display: grid;
+    align-items: center;
+  }
+
+  .archive-list { display: grid; }
+
+  .archive-entry {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+  }
+
+  .entry-action {
+    color: var(--wano-green);
+    font-size: 1.1rem;
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wider);
+    white-space: nowrap;
+  }
+
+  .entry-title {
+    margin: 0;
+    color: var(--wano-white);
+    font-size: var(--text-md);
+    line-height: var(--leading-snug);
+    width: fit-content;
+  }
+
+  .archive-entry p {
+    margin: 0.35rem 0 0;
+    color: var(--wano-grey-300);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+  }
+
+  .archive-entry time {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--wano-green-dim);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .entry-title,
+  .entry-action {
+    cursor: url('/bluefish-cursor.cur'), pointer;
+    transition: var(--transition-hover);
+  }
+
+  .entry-title:hover,
+  .entry-action:hover {
+    background: var(--wano-green);
+    color: var(--wano-black);
+  }
+
+  .archive-spacer { flex: 1; }
+
+  @media (max-width: 700px) {
+    .articles-page { padding: 0.5rem; }
+
+    .articles-frame {
+      --rail-width: 22vw;
+      --rail-top-offset: 0px;
+      --menu-offset: 0.5rem;
+    }
+
+    .articles-menu {
+      top: calc(var(--rail-width) + var(--menu-offset));
+      font-size: var(--text-2xs);
+    }
+
+    .articles-body { grid-template-columns: 1fr; }
+    .side-column { display: none; }
+    .mask-window::after { display: none; }
+    .archive-stage { min-height: 0; }
+    .archive-entry { grid-template-columns: 1fr; gap: 0.35rem; }
+    .entry-action { justify-self: start; }
+    .read-mark img { width: 100%; }
+  }
+</style>
