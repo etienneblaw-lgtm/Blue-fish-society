@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 28" preserveAspectRatio="none" shape-rendering="crispEdges">
+  <g fill="none" stroke="#15c8bb" stroke-width="1">
+    <path d="M1 27V4H22M1 4H22M22 4V10M22 10H34" />
+    <path d="M34 10H1166" stroke-dasharray="3 4" />
+    <path d="M1166 10H1178M1178 10V4H1199M1178 4H1199V27" />
+    <path d="M584 10V1M616 10V1M584 1H616M600 1V24" />
+    <rect x="596" y="8" width="8" height="8" />
+  </g>
+</svg>

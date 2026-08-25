@@ -1,0 +1,625 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { tracks } from '@/data/tracks';
+
+const track = tracks.find(({ slug }) => slug === 'tirage-suspens');
+
+if (!track) throw new Error('Track tirage-suspens not found');
+---
+
+<BaseLayout title="Bluefish Lab — Tirage suspens" description="Prototype d'expérience générative pour Tirage suspens.">
+  <main class="experience" id="experience">
+    <canvas id="art-canvas" aria-hidden="true"></canvas>
+
+    <header class="lab-header">
+      <a href="/tracks">← TRACK ARCHIVE</a>
+      <div class="lab-identity">
+        <span class="brand">BLUEFISH SOCIETY</span>
+        <span>EXPERIENCE LAB / 001</span>
+      </div>
+    </header>
+
+    <aside class="source-panel" aria-label="Réponses fictives utilisées pour générer l'expérience">
+      <div class="source-title">[ FICTIONAL INPUT / PROTOTYPE ]</div>
+      <dl>
+        <div>
+          <dt>01 / TRAJECTORY</dt>
+          <dd>Un parking vide sous la pluie, puis le soleil derrière les hangars.</dd>
+        </div>
+        <div>
+          <dt>02 / MOVEMENT</dt>
+          <dd>Ramper. Pulser. S'ouvrir.</dd>
+        </div>
+        <div>
+          <dt>03 / TRACE</dt>
+          <dd>Une porte.</dd>
+        </div>
+      </dl>
+    </aside>
+
+    <section class="mix-copy" aria-labelledby="mix-title">
+      <div class="transmission-id">TRANSMISSION {track.id.toUpperCase()} / {track.year}</div>
+      <h1 id="mix-title">{track.title}</h1>
+      <p class="artist">{track.artist} · {track.duration}</p>
+      <p class="manifesto">{track.manifesto}</p>
+    </section>
+
+    <section class="player" aria-label={`Lecteur de ${track.title}`}>
+      <button id="play-toggle" class="play-toggle" type="button">▶ ENTER TRANSMISSION</button>
+      <div class="timeline">
+        <span id="current-time">00:00</span>
+        <button id="progress-track" class="progress-track" type="button" aria-label="Changer la progression">
+          <span id="progress-fill"></span>
+        </button>
+        <span id="duration">{track.duration}</span>
+      </div>
+      <div class="experience-status">
+        <span>VISUAL STATE</span>
+        <strong id="visual-state">DORMANT / RAIN FIELD</strong>
+      </div>
+      <audio id="audio" src={track.src} preload="metadata"></audio>
+    </section>
+
+    <div class="signal-cursor" id="signal-cursor" aria-hidden="true"><span></span></div>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('art-canvas');
+    const context = canvas.getContext('2d');
+    const experience = document.getElementById('experience');
+    const cursor = document.getElementById('signal-cursor');
+    const audio = document.getElementById('audio');
+    const playToggle = document.getElementById('play-toggle');
+    const progressTrack = document.getElementById('progress-track');
+    const progressFill = document.getElementById('progress-fill');
+    const currentTime = document.getElementById('current-time');
+    const duration = document.getElementById('duration');
+    const visualState = document.getElementById('visual-state');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const glyphs = ['·', '╱', '/', ':', '|', '░', '⋮', '╌'];
+    const pointer = { x: 0, y: 0, active: false, down: false };
+    const particles = [];
+    let width = 0;
+    let height = 0;
+    let playing = false;
+    let visualProgress = reducedMotion ? 0.68 : 0;
+    let lastFrame = performance.now();
+    let random = seededRandom(14271);
+
+    function seededRandom(seed) {
+      let value = seed >>> 0;
+      return () => {
+        value = (value * 1664525 + 1013904223) >>> 0;
+        return value / 4294967296;
+      };
+    }
+
+    function clamp(value, min = 0, max = 1) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function smoothstep(value) {
+      const amount = clamp(value);
+      return amount * amount * (3 - 2 * amount);
+    }
+
+    function colorBetween(start, end, amount) {
+      const mixed = start.map((channel, index) => Math.round(channel + (end[index] - channel) * amount));
+      return `rgb(${mixed.join(',')})`;
+    }
+
+    function formatTime(seconds) {
+      if (!Number.isFinite(seconds)) return '00:00';
+      const minutes = Math.floor(seconds / 60);
+      const remaining = Math.floor(seconds % 60);
+      return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
+    }
+
+    function createParticle(index, count) {
+      const targetRatio = index / Math.max(1, Math.floor(count * 0.46));
+      let target = null;
+
+      if (targetRatio <= 1) {
+        if (targetRatio < 0.32) target = { edge: 'left', position: targetRatio / 0.32 };
+        else if (targetRatio < 0.64) target = { edge: 'right', position: (targetRatio - 0.32) / 0.32 };
+        else target = { edge: 'top', position: (targetRatio - 0.64) / 0.36 };
+      }
+
+      return {
+        x: random() * width,
+        y: random() * height,
+        speed: 20 + random() * 76,
+        drift: 5 + random() * 15,
+        phase: random() * Math.PI * 2,
+        size: 9 + random() * 7,
+        opacity: 0.18 + random() * 0.6,
+        glyph: glyphs[Math.floor(random() * glyphs.length)],
+        target,
+      };
+    }
+
+    function resize() {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+      random = seededRandom(14271);
+      particles.length = 0;
+      const count = Math.round(clamp((width * height) / 3100, 210, 520));
+      for (let index = 0; index < count; index += 1) particles.push(createParticle(index, count));
+    }
+
+    function getDoorPoint(target, openness, time) {
+      const compact = width < 700;
+      const centerX = width * (compact ? 0.5 : 0.58);
+      const centerY = height * (compact ? 0.43 : 0.47);
+      const finalWidth = Math.min(width * (compact ? 0.42 : 0.25), 320);
+      const doorHeight = Math.min(height * 0.46, 430);
+      const halfWidth = finalWidth * (0.2 + openness * 0.8) * 0.5;
+      const shimmer = Math.sin(time * 0.002 + target.position * 18) * (1 + visualProgress * 2.5);
+
+      if (target.edge === 'left') {
+        return { x: centerX - halfWidth + shimmer, y: centerY - doorHeight / 2 + doorHeight * target.position };
+      }
+      if (target.edge === 'right') {
+        return { x: centerX + halfWidth + shimmer, y: centerY - doorHeight / 2 + doorHeight * target.position };
+      }
+      return { x: centerX - halfWidth + halfWidth * 2 * target.position, y: centerY - doorHeight / 2 + shimmer };
+    }
+
+    function applyPointer(x, y) {
+      if (!pointer.active) return { x, y };
+      const dx = x - pointer.x;
+      const dy = y - pointer.y;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+      const radius = pointer.down ? 190 : 125;
+      if (distance >= radius) return { x, y };
+      const force = (1 - distance / radius) * (pointer.down ? 120 : 54);
+      return { x: x + (dx / distance) * force, y: y + (dy / distance) * force };
+    }
+
+    function updateStatus() {
+      if (!playing && visualProgress < 0.04) visualState.textContent = 'DORMANT / RAIN FIELD';
+      else if (visualProgress < 0.25) visualState.textContent = 'MOVEMENT / CRAWLING';
+      else if (visualProgress < 0.58) visualState.textContent = 'SIGNAL / PULSING';
+      else if (visualProgress < 0.9) visualState.textContent = 'STRUCTURE / OPENING';
+      else visualState.textContent = 'TRACE / THE DOOR';
+    }
+
+    function draw(timestamp) {
+      const delta = Math.min(32, timestamp - lastFrame);
+      lastFrame = timestamp;
+      if (playing && !reducedMotion) visualProgress = clamp(visualProgress + delta / 28000);
+
+      const transform = smoothstep((visualProgress - 0.12) / 0.72);
+      const openness = smoothstep((visualProgress - 0.36) / 0.56);
+      const intensity = 0.24 + visualProgress * 0.76;
+      const pulse = 0.78 + Math.sin(timestamp * (0.003 + visualProgress * 0.005)) * visualProgress * 0.22;
+
+      context.clearRect(0, 0, width, height);
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+
+      particles.forEach((particle) => {
+        if (!reducedMotion) {
+          particle.y += particle.speed * (1 + visualProgress * 1.65) * (delta / 1000);
+          particle.x += Math.sin(timestamp * 0.00035 + particle.phase) * particle.drift * (delta / 1000);
+          if (particle.y > height + 24) {
+            particle.y = -24;
+            particle.x = random() * width;
+          }
+        }
+
+        let x = particle.x;
+        let y = particle.y;
+
+        if (particle.target) {
+          const target = getDoorPoint(particle.target, openness, timestamp);
+          x = x * (1 - transform) + target.x * transform;
+          y = y * (1 - transform) + target.y * transform;
+        }
+
+        const displaced = applyPointer(x, y);
+        const colorAmount = clamp(visualProgress * 0.92 + particle.opacity * 0.08);
+        context.fillStyle = colorBetween([20, 82, 92], [31, 243, 224], colorAmount);
+        context.globalAlpha = particle.opacity * intensity * pulse;
+        context.font = `${Math.round(particle.size + visualProgress * 2)}px "JetBrains Mono", monospace`;
+        context.fillText(particle.glyph, displaced.x, displaced.y);
+      });
+
+      if (visualProgress > 0.78) {
+        const reveal = smoothstep((visualProgress - 0.78) / 0.18);
+        const compact = width < 700;
+        context.globalAlpha = reveal * (0.55 + Math.sin(timestamp * 0.003) * 0.18);
+        context.fillStyle = '#1ff3e0';
+        context.font = `${compact ? 11 : 13}px "JetBrains Mono", monospace`;
+        context.letterSpacing = '0.12em';
+        context.fillText('[ ENTER ]', width * (compact ? 0.5 : 0.58), height * (compact ? 0.43 : 0.47));
+      }
+
+      context.globalAlpha = 1;
+      updateStatus();
+      window.requestAnimationFrame(draw);
+    }
+
+    function updateAudioUi() {
+      currentTime.textContent = formatTime(audio.currentTime);
+      if (Number.isFinite(audio.duration)) {
+        duration.textContent = formatTime(audio.duration);
+        progressFill.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+      }
+    }
+
+    playToggle.addEventListener('click', () => {
+      if (audio.paused) audio.play().catch(() => {
+        playToggle.textContent = '⊘ AUDIO UNAVAILABLE';
+      });
+      else audio.pause();
+    });
+
+    progressTrack.addEventListener('click', (event) => {
+      if (!Number.isFinite(audio.duration)) return;
+      const bounds = progressTrack.getBoundingClientRect();
+      audio.currentTime = clamp((event.clientX - bounds.left) / bounds.width) * audio.duration;
+    });
+
+    audio.addEventListener('play', () => {
+      playing = true;
+      playToggle.textContent = '⏸ SUSPEND TRANSMISSION';
+      experience.classList.add('is-playing');
+    });
+
+    audio.addEventListener('pause', () => {
+      playing = false;
+      playToggle.textContent = '▶ RESUME TRANSMISSION';
+      experience.classList.remove('is-playing');
+    });
+
+    audio.addEventListener('ended', () => {
+      playing = false;
+      playToggle.textContent = '↻ RESTART TRANSMISSION';
+      experience.classList.remove('is-playing');
+    });
+
+    audio.addEventListener('loadedmetadata', updateAudioUi);
+    audio.addEventListener('timeupdate', updateAudioUi);
+
+    experience.addEventListener('pointermove', (event) => {
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.active = event.pointerType === 'mouse';
+      if (pointer.active) {
+        cursor.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
+        cursor.classList.add('visible');
+      }
+    });
+
+    experience.addEventListener('pointerleave', () => {
+      pointer.active = false;
+      cursor.classList.remove('visible');
+    });
+
+    experience.addEventListener('pointerdown', () => {
+      pointer.down = true;
+      cursor.classList.add('active');
+    });
+
+    window.addEventListener('pointerup', () => {
+      pointer.down = false;
+      cursor.classList.remove('active');
+    });
+
+    window.addEventListener('resize', resize);
+    resize();
+    window.requestAnimationFrame(draw);
+  </script>
+</BaseLayout>
+
+<style>
+  .experience {
+    position: relative;
+    min-height: 100svh;
+    overflow: hidden;
+    isolation: isolate;
+    background: var(--wano-black);
+    color: var(--wano-white);
+  }
+
+  #art-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+
+  .lab-header {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 1.5rem 1.75rem;
+    border-bottom: 1px solid var(--wano-grey-800);
+  }
+
+  .lab-header a {
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .lab-identity {
+    display: grid;
+    gap: 0.25rem;
+    color: var(--wano-grey-400);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+    text-align: right;
+  }
+
+  .lab-identity .brand {
+    color: var(--bf-turquoise);
+  }
+
+  .source-panel {
+    position: absolute;
+    top: 7rem;
+    right: 1.75rem;
+    width: min(320px, calc(100vw - 3.5rem));
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--wano-green-border);
+    background: var(--wano-black);
+  }
+
+  .source-title {
+    color: var(--wano-green);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .source-panel dl {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0.85rem 0 0;
+  }
+
+  .source-panel dl div {
+    display: grid;
+    gap: 0.18rem;
+  }
+
+  .source-panel dt {
+    color: var(--wano-green-dim);
+    font-size: var(--text-2xs);
+  }
+
+  .source-panel dd {
+    margin: 0;
+    color: var(--wano-white);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+    opacity: 0.62;
+  }
+
+  .mix-copy {
+    position: absolute;
+    bottom: 7.5rem;
+    left: 1.75rem;
+    width: min(570px, calc(100vw - 3.5rem));
+  }
+
+  .transmission-id {
+    margin-bottom: 0.7rem;
+    color: var(--wano-green);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+  }
+
+  h1 {
+    max-width: 8ch;
+    margin: 0;
+    color: var(--wano-white);
+    font-size: clamp(3.2rem, 8.5vw, 8.5rem);
+    font-weight: var(--weight-bold);
+    line-height: 0.76;
+    letter-spacing: -0.08em;
+    text-transform: uppercase;
+  }
+
+  .artist {
+    margin: 1.25rem 0 0;
+    color: var(--bf-turquoise);
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .manifesto {
+    max-width: 480px;
+    margin: 0.65rem 0 0;
+    color: var(--wano-white);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    opacity: 0.58;
+  }
+
+  .player {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: max-content minmax(220px, 1fr) max-content;
+    align-items: center;
+    gap: 1.5rem;
+    min-height: 74px;
+    padding: 0.8rem 1.75rem;
+    border-top: 1px solid var(--wano-green);
+    background: var(--wano-black);
+  }
+
+  .play-toggle {
+    border: 1px solid var(--wano-green);
+    border-radius: 0;
+    background: var(--wano-black);
+    color: var(--wano-green);
+    padding: 0.65rem 0.9rem;
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .play-toggle:hover,
+  .play-toggle:focus-visible {
+    background: var(--wano-green);
+    color: var(--wano-black);
+    outline: none;
+  }
+
+  .timeline {
+    display: grid;
+    grid-template-columns: 4ch minmax(100px, 1fr) 5ch;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--wano-grey-300);
+    font-size: var(--text-2xs);
+  }
+
+  .progress-track {
+    height: 3px;
+    padding: 0;
+    border: 0;
+    background: var(--wano-grey-700);
+  }
+
+  .progress-track span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: var(--wano-green);
+  }
+
+  .experience-status {
+    display: grid;
+    gap: 0.22rem;
+    min-width: 190px;
+    font-size: var(--text-2xs);
+    text-align: right;
+  }
+
+  .experience-status span {
+    color: var(--wano-grey-400);
+  }
+
+  .experience-status strong {
+    color: var(--wano-green);
+    font-weight: var(--weight-normal);
+  }
+
+  .signal-cursor {
+    position: fixed;
+    top: -8px;
+    left: -8px;
+    z-index: 20;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--wano-green);
+    opacity: 0;
+    pointer-events: none;
+    transition: width 80ms linear, height 80ms linear, opacity 80ms linear;
+  }
+
+  .signal-cursor::before,
+  .signal-cursor::after {
+    position: absolute;
+    content: '';
+    background: var(--wano-green);
+  }
+
+  .signal-cursor::before {
+    top: 7px;
+    left: -5px;
+    width: 24px;
+    height: 1px;
+  }
+
+  .signal-cursor::after {
+    top: -5px;
+    left: 7px;
+    width: 1px;
+    height: 24px;
+  }
+
+  .signal-cursor.visible { opacity: 0.72; }
+
+  .signal-cursor.active {
+    top: -13px;
+    left: -13px;
+    width: 26px;
+    height: 26px;
+  }
+
+  @media (pointer: fine) {
+    .experience,
+    .experience a,
+    .experience button { cursor: none; }
+  }
+
+  @media (max-width: 800px) {
+    .source-panel { top: 6rem; }
+    .mix-copy { bottom: 8.8rem; }
+
+    .player {
+      grid-template-columns: 1fr;
+      gap: 0.7rem;
+      padding: 0.75rem 1rem;
+    }
+
+    .play-toggle { width: 100%; }
+    .experience-status { display: none; }
+  }
+
+  @media (max-width: 560px) {
+    .experience {
+      min-height: 820px;
+      overflow-y: auto;
+    }
+
+    .lab-header { padding: 1rem; }
+    .lab-identity span:last-child { display: none; }
+
+    .source-panel {
+      top: 5rem;
+      right: 1rem;
+      left: 1rem;
+      width: auto;
+    }
+
+    .source-panel dl {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.55rem;
+    }
+
+    .source-panel dd { font-size: 0.64rem; }
+
+    .mix-copy {
+      right: 1rem;
+      bottom: 9.3rem;
+      left: 1rem;
+      width: auto;
+    }
+
+    h1 { font-size: clamp(3.2rem, 18vw, 5.4rem); }
+    .manifesto { font-size: var(--text-xs); }
+    .player { position: fixed; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .signal-cursor { display: none; }
+  }
+</style>

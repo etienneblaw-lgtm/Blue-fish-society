@@ -8,9 +8,21 @@ import { filters, tracks } from '@/data/tracks';
 <BaseLayout title="Bluefish Society — Track Archive">
   <SiteHeader active="tracks" />
   <main class="archive wano-scroll">
+    <header class="archive-intro">
+      <div class="archive-kicker">BLUEFISH SOCIETY / AUDIO NODE</div>
+      <div class="archive-heading">
+        <div>
+          <h1>TRACK ARCHIVE</h1>
+          <p>Public transmissions from the Blue Fish feed.</p>
+        </div>
+        <div class="archive-count">[{String(tracks.length).padStart(2, '0')} SIGNALS]</div>
+      </div>
+    </header>
+
     <section class="controls" aria-label="Filtres de catalogue">
       <div class="search-box">
-        <input id="search-input" type="search" placeholder="/ — search title, tag, year…" autocomplete="off" />
+        <span aria-hidden="true">root@bluefish:archive$</span>
+        <input id="search-input" type="search" placeholder="search title, artist, tag..." aria-label="Rechercher une transmission" autocomplete="off" />
       </div>
       <div class="filters" id="filters">
         {filters.map(([value, label]) => <button class:list={[value === 'all' && 'active']} type="button" data-filter={value}>{label}</button>)}
@@ -73,7 +85,10 @@ import { filters, tracks } from '@/data/tracks';
         const isPlaying = index === currentIndex && !audio.paused;
         card.classList.toggle('playing', isPlaying);
         const button = card.querySelector('[data-play-button]');
-        if (button && card.dataset.trackSrc) button.textContent = isPlaying ? '⏸ PAUSE' : '▶ PLAY';
+        if (button && card.dataset.trackSrc) {
+          button.textContent = isPlaying ? '⏸' : '▶';
+          button.setAttribute('aria-label', isPlaying ? `Mettre ${card.dataset.trackTitle} en pause` : `Lire ${card.dataset.trackTitle}`);
+        }
       });
       gpToggle.textContent = audio.paused ? '▶ PLAY' : '⏸ PAUSE';
     }
@@ -164,44 +179,100 @@ import { filters, tracks } from '@/data/tracks';
 </BaseLayout>
 
 <style>
-  .archive { padding-bottom: 6rem; }
+  .archive {
+    width: min(100%, 940px);
+    min-height: calc(100vh - 73px);
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 7rem;
+  }
+
+  .archive-intro {
+    margin-bottom: 1.4rem;
+  }
+
+  .archive-kicker {
+    margin-bottom: 0.55rem;
+    color: var(--bf-turquoise);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wider);
+  }
+
+  .archive-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .archive-heading h1 {
+    margin: 0;
+    color: var(--wano-green);
+    font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+    line-height: 1;
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .archive-heading p {
+    margin: 0.55rem 0 0;
+    color: var(--wano-white);
+    font-size: var(--text-sm);
+    opacity: 0.56;
+  }
+
+  .archive-count {
+    color: var(--wano-green-dim);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+  }
 
   .controls {
     display: flex;
-    gap: 1rem;
+    justify-content: space-between;
+    gap: 0.85rem;
     align-items: center;
     flex-wrap: wrap;
-    padding: 1rem 2rem;
+    margin-bottom: 0.75rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--wano-grey-800);
     border-bottom: 1px solid var(--wano-grey-800);
   }
 
-  .search-box { flex: 1; min-width: 220px; }
+  .search-box {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 260px;
+    color: var(--wano-green-dim);
+    font-size: var(--text-xs);
+  }
 
   .search-box input {
     width: 100%;
-    border: 1px solid var(--wano-grey-700);
+    min-width: 120px;
+    border: 0;
     border-radius: 0;
     background: var(--wano-black);
     color: var(--wano-white);
     caret-color: var(--wano-green);
     outline: none;
-    padding: 0.6rem 1rem;
+    padding: 0.25rem 0;
+    font-size: var(--text-xs);
   }
 
-  .search-box input:focus { border-color: var(--wano-green); }
   .search-box input::placeholder { color: var(--wano-grey-500); }
 
-  .filters { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .filters { display: flex; flex-wrap: wrap; gap: 0.2rem; }
 
   .filters button,
   .gp-controls button {
-    border: 1px solid var(--wano-grey-700);
+    border: 1px solid transparent;
     border-radius: 0;
     background: var(--wano-black);
     color: var(--wano-grey-300);
     cursor: pointer;
-    padding: 0.5rem 0.85rem;
-    font-size: var(--text-sm);
+    padding: 0.28rem 0.45rem;
+    font-size: var(--text-2xs);
     letter-spacing: var(--tracking-wide);
     transition: var(--transition-hover);
   }
@@ -216,12 +287,8 @@ import { filters, tracks } from '@/data/tracks';
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
-    gap: 1px;
-    max-width: var(--container-grid);
-    margin: 0 auto;
-    padding: 1.5rem 2rem;
-    background: var(--wano-grey-850);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.72rem;
   }
 
   .empty {
@@ -238,8 +305,9 @@ import { filters, tracks } from '@/data/tracks';
     z-index: 100;
     display: none;
     align-items: center;
-    gap: 1.5rem;
-    padding: 0.8rem 2rem;
+    gap: 1.25rem;
+    min-height: 62px;
+    padding: 0.65rem max(1rem, calc((100vw - 940px) / 2));
     border-top: 1px solid var(--wano-green);
     background: var(--wano-black);
   }
@@ -281,14 +349,20 @@ import { filters, tracks } from '@/data/tracks';
   .gp-volume input { width: 70px; }
 
   @media (max-width: 800px) {
-    .controls { padding: 1rem; }
-    .grid { grid-template-columns: 1fr; padding: 0 0 6rem; }
+    .archive { padding-top: 1.75rem; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .controls { align-items: flex-start; flex-direction: column; }
+    .search-box { width: 100%; min-width: 0; }
     .global-player { gap: 0.8rem; padding: 0.7rem 1rem; }
     .gp-info { flex: 0 0 140px; }
     .gp-volume { display: none; }
   }
 
   @media (max-width: 520px) {
+    .archive { padding: 1.4rem 0.8rem 6rem; }
+    .archive-heading { align-items: flex-start; flex-direction: column; gap: 0.65rem; }
+    .grid { grid-template-columns: 1fr; }
+    .filters { width: 100%; }
     .gp-info { display: none; }
     .gp-time { display: none; }
   }

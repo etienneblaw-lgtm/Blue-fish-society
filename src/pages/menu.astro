@@ -1,0 +1,268 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import BrandFish from '@/components/BrandFish.astro';
+---
+
+<BaseLayout title="Bluefish Society — Menu">
+  <main class="screen wano-scroll">
+    <section class="menu-screen" aria-label="Menu principal">
+      <div class="container-terminal">
+        <div class="fish-line" aria-hidden="true">
+          <BrandFish class="watermark-fish" />
+        </div>
+
+        <section class="terminal-frame hero-frame" aria-label="Accès terminal">
+          <div class="brand bf-glow">BLUEFISH TERMINAL v1.0</div>
+          <div><span class="highlight">ACCESS GRANTED</span> - <span id="dashboard-name">ANONYME</span></div>
+        </section>
+
+        <section class="terminal-frame labelled-frame system-frame" aria-label="System info">
+          <h2 class="frame-label">SYSTEM INFO</h2>
+          <div class="system-rows">
+            <div class="system-row"><span>USER</span><span class="system-dots" aria-hidden="true">................................................................................................</span><span id="system-name" class="highlight">ANONYME</span></div>
+            <div class="system-row"><span>SESSION</span><span class="system-dots" aria-hidden="true">................................................................................................</span><span id="session-id">SID-0000-0000</span></div>
+            <div class="system-row"><span>UPTIME</span><span class="system-dots" aria-hidden="true">................................................................................................</span><span id="uptime">00:00:00</span></div>
+            <div class="system-row"><span>DATE</span><span class="system-dots" aria-hidden="true">................................................................................................</span><span id="datetime">LOADING...</span></div>
+          </div>
+        </section>
+
+        <div class="terminal-box module-list" aria-label="Modules disponibles">
+          <a class="module-row" href="/tracks">
+            <span class="module-name">MUSIC</span>
+            <span class="module-desc">Listen to archived mixes and transmissions</span>
+          </a>
+          <a class="module-row" href="/manifesto">
+            <span class="module-name">MANIFESTO</span>
+            <span class="module-desc">Discover the vision behind Bluefish Society</span>
+          </a>
+          <a class="module-row" href="/mailing-list">
+            <span class="module-name">MAILING LIST</span>
+            <span class="module-desc">Receive 2 to 3 transmissions per month</span>
+          </a>
+          <a class="module-row" href="/articles">
+            <span class="module-name">ARTICLES</span>
+            <span class="module-desc">Texts that we feel. Newsletter archives.</span>
+          </a>
+          <a class="module-row" href="https://t.me/bfscty" target="_blank" rel="noreferrer">
+            <span class="module-name">CONTACT US ON TELEGRAM</span>
+            <span class="module-desc">Talk to us, share your music, or anything else.</span>
+          </a>
+        </div>
+
+        <!-- Future: random archived mix/player presentation lives here. -->
+        <section class="terminal-frame labelled-frame now-playing-box" aria-label="Now playing">
+          <h2 class="frame-label">NOW PLAYING</h2>
+        </section>
+
+        <pre class="terminal-box command-line">root@bluefish:~$ <span class="cursor-block wano-cursor"></span></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const name = localStorage.getItem('bluefish.identity');
+
+    if (!name) window.location.replace('/');
+
+    const cleanName = (value) => (value || 'ANONYME').trim().slice(0, 24) || 'ANONYME';
+    const activeName = cleanName(name);
+    let startedAt = Date.now();
+
+    document.getElementById('dashboard-name').textContent = activeName.toUpperCase();
+    document.getElementById('system-name').textContent = activeName.toUpperCase();
+    document.getElementById('session-id').textContent = `SID-${Math.random().toString(16).slice(2, 6).toUpperCase()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+
+    function updateClock() {
+      const now = new Date();
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const uptime = [Math.floor(elapsed / 3600), Math.floor((elapsed % 3600) / 60), elapsed % 60].map((n) => String(n).padStart(2, '0')).join(':');
+      document.getElementById('uptime').textContent = uptime;
+      document.getElementById('datetime').textContent = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR')}`;
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+</BaseLayout>
+
+<style>
+  .menu-screen {
+    min-height: 100vh;
+  }
+
+  @media (min-height: 800px) and (min-width: 701px) {
+    .menu-screen {
+      display: flex;
+      align-items: center;
+    }
+
+    :global(.menu-screen .container-terminal) {
+      width: 100%;
+    }
+  }
+
+  .terminal-frame {
+    width: 100%;
+    border: 1px solid var(--wano-white);
+    color: var(--wano-white);
+  }
+
+  .hero-frame {
+    display: grid;
+    gap: 0.35rem;
+    margin: 1.9rem 0 2rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
+  }
+
+  .hero-frame > * {
+    transform: translateX(-0.35ch);
+  }
+
+  .labelled-frame {
+    position: relative;
+    margin: 3rem 0 2rem;
+    padding: 0.85rem 1.35rem 1rem;
+  }
+
+  .frame-label {
+    position: absolute;
+    top: -0.85em;
+    left: 1.2rem;
+    margin: 0;
+    padding: 0 0.55rem;
+    background: var(--wano-black);
+    color: var(--wano-green);
+    font-size: var(--text-md);
+    line-height: 1;
+  }
+
+  .system-rows {
+    display: grid;
+    gap: 0.25rem;
+    color: var(--wano-white);
+    font-size: 0.78rem;
+  }
+
+  .system-frame .frame-label {
+    color: var(--wano-green-dim);
+    font-size: 0.78rem;
+  }
+
+  .system-row {
+    display: grid;
+    grid-template-columns: max-content minmax(1rem, 1fr) max-content;
+    gap: 0.55rem;
+    align-items: baseline;
+  }
+
+  .system-dots {
+    overflow: hidden;
+    color: var(--wano-white);
+  }
+
+  .module-list {
+    display: grid;
+    gap: 1.35rem;
+    margin: 2.4rem 0 3rem;
+  }
+
+  .module-row {
+    display: grid;
+    gap: 0.2rem;
+    border: 0;
+    color: var(--wano-white);
+  }
+
+  .module-row:hover,
+  .module-row:focus-visible {
+    background: transparent;
+    color: var(--wano-white);
+    outline: none;
+  }
+
+  .module-row:hover .module-name,
+  .module-row:focus-visible .module-name {
+    background: var(--wano-green);
+    color: var(--wano-black);
+  }
+
+  .module-name {
+    color: var(--wano-green);
+    font-size: 1.125rem;
+    font-weight: var(--weight-bold);
+  }
+
+  .module-desc {
+    color: var(--wano-white);
+    font-size: 0.8rem;
+    font-weight: var(--weight-normal);
+    opacity: 0.65;
+  }
+
+  .now-playing-box {
+    min-height: 80px;
+    margin-top: 0.8rem;
+  }
+
+  .command-line {
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+  }
+
+  .fish-line {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    overflow: hidden;
+    margin: 0 0 0.5rem;
+  }
+
+  :global(.watermark-fish) {
+    display: block;
+    width: fit-content;
+    max-width: none;
+    margin: 0;
+    color: var(--bf-turquoise-bright);
+    font-size: 4px;
+    font-weight: var(--weight-normal);
+    opacity: 0.84;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px rgba(30, 200, 200, 0.35));
+    text-shadow: 0 0 2px rgba(95, 240, 230, 0.45), 0 0 8px rgba(30, 200, 200, 0.2);
+    transform: translateX(0);
+  }
+
+  .cursor-block {
+    border-right: 8px solid var(--wano-green);
+  }
+
+  @media (min-height: 900px) and (min-width: 701px) {
+    :global(.menu-screen .container-terminal) {
+      display: grid;
+      grid-template-rows: auto auto auto minmax(300px, 1fr) auto auto;
+      min-height: min(870px, calc(100vh - 4rem));
+    }
+
+    .fish-line { margin-bottom: 0; }
+    .hero-frame { margin: 1.25rem 0; }
+    .labelled-frame { margin: 1.5rem 0; }
+
+    .module-list {
+      min-height: 300px;
+      margin: 0;
+      align-content: space-evenly;
+      gap: 0;
+    }
+
+    .now-playing-box { margin-top: 1.5rem; }
+  }
+
+  @media (max-width: 700px) {
+    .hero-frame > * { transform: none; }
+    .labelled-frame { padding: 0.85rem 1rem 1rem; }
+    .module-name { font-size: 1rem; }
+    .module-desc { font-size: 0.75rem; }
+    :global(.watermark-fish) { display: none; }
+  }
+</style>

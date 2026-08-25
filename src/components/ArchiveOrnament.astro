@@ -1,0 +1,50 @@
+---
+interface Props {
+  variant: 'top' | 'divider' | 'bottom';
+  label?: string;
+}
+
+const { variant, label } = Astro.props;
+const assets = {
+  top: '/article-ornament-top.svg',
+  divider: '/article-ornament-divider.svg',
+  bottom: '/article-ornament-bottom.svg',
+};
+---
+
+<div class:list={['archive-ornament', `archive-ornament-${variant}`]} aria-hidden="true">
+  <img src={assets[variant]} alt="" />
+  {label && <span>{label}</span>}
+</div>
+
+<style>
+  .archive-ornament {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .archive-ornament img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .archive-ornament-top,
+  .archive-ornament-bottom { height: 28px; }
+
+  .archive-ornament-divider { height: 16px; }
+
+  .archive-ornament span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    padding: 0 0.65rem;
+    transform: translate(-50%, -50%);
+    background: var(--wano-black);
+    color: var(--wano-green);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    white-space: nowrap;
+  }
+</style>

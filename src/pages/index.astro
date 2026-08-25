@@ -1,323 +1,291 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import BrandFish from '@/components/BrandFish.astro';
 ---
 
 <BaseLayout title="Bluefish Society — Terminal">
   <main class="screen wano-scroll">
-    <section id="identity-screen" class="terminal-view active" aria-label="Entrée terminal">
-      <div class="container-terminal">
-        <pre class="terminal-box">╔════════════════════════════════════════════════════════════════════╗
-║                                                                    ║
-║                      <span class="brand bf-glow">BLUEFISH TERMINAL v1.0</span>                      ║
-║                                                                    ║
-║                         IDENTIFICATION DOUCE                       ║
-║                                                                    ║
-╚════════════════════════════════════════════════════════════════════╝</pre>
-
-        <pre class="terminal-box">SYSTEM STATUS ......................................... <span class="highlight">[ ONLINE ]</span>
-ARCHIVE MODE ..................................... <span class="highlight">NON-COMMERCIAL</span>
-ACCESS POLICY .......................................... <span class="highlight">OPEN</span></pre>
-
-        <form id="identity-form" class="prompt">
-          <label for="visitor-name">root@bluefish:~$ qui es-tu ? </label>
-          <input id="visitor-name" class="terminal-input" name="name" autocomplete="name" placeholder="ton nom" />
-          <button class="terminal-submit" type="submit">ENTER</button>
-        </form>
-
-        <p class="hint">Aucun compte. Aucun mot de passe. Le nom reste dans ton navigateur.</p>
-        <BrandFish class="corner-fish" />
+    <section id="entry-screen" class="entry-screen" aria-label="Entrée Bluefish Society">
+      <div class="entry-terminal" aria-live="polite">
+        <div id="terminal-output" class="terminal-output"></div>
+        <div id="name-prompt" class="name-prompt" hidden>
+          <input
+            id="name-input"
+            class="name-input"
+            type="text"
+            size="1"
+            maxlength="24"
+            autocomplete="name"
+            aria-label="Your name"
+          />
+        </div>
+        <button id="continue-prompt" class="continue-prompt wano-hint" type="button" hidden>PRESS ENTER</button>
+        <span id="entry-cursor" class="inline-cursor wano-cursor" aria-hidden="true" hidden></span>
       </div>
     </section>
 
-    <section id="manifesto-screen" class="terminal-view" aria-label="Manifesto">
-      <div id="manifesto-anchor" class="manifesto-wrap">
-        <div id="manifesto-text"></div><span id="manifesto-cursor" class="manifesto-cursor wano-cursor"></span>
-        <button id="manifesto-next" class="manifesto-next wano-hint" type="button">[ CLIQUER OU APPUYER SUR UNE TOUCHE POUR CONTINUER ]</button>
-      </div>
-    </section>
-
-    <section id="dashboard-screen" class="terminal-view" aria-label="Dashboard">
-      <div class="container-terminal">
-        <pre class="terminal-box">╔════════════════════════════════════════════════════════════════════╗
-║                       <span class="brand bf-glow">BLUEFISH TERMINAL v1.0</span>                       ║
-║                    <span class="highlight">ACCESS GRANTED</span> - CITOYEN <span id="dashboard-name">ANONYME</span>             ║
-╚════════════════════════════════════════════════════════════════════╝</pre>
-
-        <pre class="terminal-box">┌─ <span class="highlight">SYSTEM INFO</span> ──────────────────────────────────────────────────────┐
-│  USER ..................... <span id="system-name" class="highlight">ANONYME</span>
-│  SESSION .................. <span id="session-id">SID-0000-0000</span>
-│  UPTIME ................... <span id="uptime">00:00:00</span>
-│  DATE ..................... <span id="datetime">LOADING...</span>
-└────────────────────────────────────────────────────────────────────┘</pre>
-
-        <pre class="terminal-box">┌─ <span class="highlight">AVAILABLE MODULES</span> ────────────────────────────────────────────────┐
-│                                                                    │
-│  [1] <a href="/tracks">LATEST RELEASE</a> ............ Access newest transmission       │
-│  [2] <a href="/tracks">TRACK ARCHIVE</a> ............. Browse complete database         │
-│  [3] <a href="#manifesto-anchor" data-replay-manifesto>BLUEFISH CONSTITUTION</a> ... Replay manifesto              │
-│  [4] <a href="/mixes/tirage-suspens">SAMPLE MIX PAGE</a> .... Open ASCII artwork shell       │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘</pre>
-
-        <pre class="terminal-box">┌─ <span class="highlight">SYSTEM LOG</span> ───────────────────────────────────────────────────────┐
-│  <span id="log-1">Initializing open archive...</span>
-│  <span id="log-2"></span>
-│  <span id="log-3"></span>
-└────────────────────────────────────────────────────────────────────┘</pre>
-
-        <pre class="terminal-box">>> Type 'archive' by clicking TRACK ARCHIVE
->> Type 'clear identity' by clearing local storage in your browser
-
-root@bluefish:~$ <span class="cursor-block wano-cursor"></span></pre>
-        <BrandFish class="watermark-fish" />
-      </div>
-    </section>
   </main>
 
   <script>
-    const manifesto = `BLUEFISH SOCIETY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const output = document.getElementById('terminal-output');
+    const namePrompt = document.getElementById('name-prompt');
+    const nameInput = document.getElementById('name-input') as HTMLInputElement;
+    const entryCursor = document.getElementById('entry-cursor');
+    const continuePrompt = document.getElementById('continue-prompt');
+    let canContinue = false;
+    let continueAction = 'menu';
+    let activeName = 'ANONYME';
+    let isCollectingName = false;
+    function getOnboardedNames() {
+      try {
+        const stored = localStorage.getItem('bluefish.onboardedNames');
+        const names = stored ? JSON.parse(stored) : [];
+        return Array.isArray(names) ? names.filter((name) => typeof name === 'string') : [];
+      } catch {
+        return [];
+      }
+    }
 
-MANIFESTE v1.0
+    function rememberIdentity(name) {
+      try {
+        localStorage.setItem('bluefish.identity', cleanName(name));
+      } catch {
+        // The site remains usable when browser storage is unavailable.
+      }
+    }
 
+    function completeOnboarding(name) {
+      const clean = cleanName(name);
+      const names = getOnboardedNames();
+      if (!names.includes(clean)) names.push(clean);
+      try {
+        localStorage.setItem('bluefish.onboardedNames', JSON.stringify(names));
+        localStorage.setItem('bluefish.identity', clean);
+      } catch {
+        // The site remains usable when browser storage is unavailable.
+      }
+    }
 
-Dans le vide saturé du bruit numérique,
-nous traçons des sillons sonores.
-
-Chaque fréquence est un territoire.
-Chaque silence, une déclaration.
-
-BLUEFISH n'est pas un label.
-BLUEFISH n'est pas une marque.
-
-BLUEFISH est un protocole.
-Une infrastructure pour les transmissions non-commerciales.
-Un refuge pour les architectures sonores autonomes.
-
-Ici, pas de playlist algorithmique.
-Pas de métrique d'engagement.
-Pas d'optimisation pour la viralité.
-
-Seulement :
-  - Des fichiers audio
-  - Des métadonnées minimales
-  - Un accès direct
-
-Ce terminal est une porte.
-Ce que tu y trouveras dépend de ce que tu cherches.
-
-Bienvenue, citoyen.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-    const screens = {
-      identity: document.getElementById('identity-screen'),
-      manifesto: document.getElementById('manifesto-screen'),
-      dashboard: document.getElementById('dashboard-screen'),
-    };
-    const form = document.getElementById('identity-form');
-    const input = document.getElementById('visitor-name');
-    const manifestoText = document.getElementById('manifesto-text');
-    const manifestoCursor = document.getElementById('manifesto-cursor');
-    const manifestoNext = document.getElementById('manifesto-next');
-    const logEls = ['log-1', 'log-2', 'log-3'].map((id) => document.getElementById(id));
-    const logs = ['Loading encrypted manifests...', 'Scanning frequency spectrum...', 'Parsing sonic artifacts...', 'Indexing track metadata...', 'Opening non-commercial channel...'];
-    let startedAt = Date.now();
-    let logIndex = 0;
-    let manifestoTimer;
-
-    function show(key) {
-      Object.values(screens).forEach((screen) => screen?.classList.remove('active'));
-      screens[key]?.classList.add('active');
+    function nameExists(name) {
+      const clean = cleanName(name).toLowerCase();
+      return getOnboardedNames().some((knownName) => knownName.toLowerCase() === clean);
     }
 
     function cleanName(value) {
       return (value || 'ANONYME').trim().slice(0, 24) || 'ANONYME';
     }
 
-    function applyIdentity(name) {
-      document.getElementById('dashboard-name').textContent = name.toUpperCase();
-      document.getElementById('system-name').textContent = name.toUpperCase();
-      document.getElementById('session-id').textContent = `SID-${Math.random().toString(16).slice(2, 6).toUpperCase()}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+    function appendLine() {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      output.appendChild(line);
+      return line;
     }
 
-    function startManifesto() {
-      show('manifesto');
-      manifestoText.textContent = '';
-      manifestoCursor.style.display = 'inline-block';
-      manifestoNext.style.display = 'none';
-      let index = 0;
-      clearTimeout(manifestoTimer);
-      const tick = () => {
-        index += 3;
-        manifestoText.textContent = manifesto.slice(0, index);
-        if (index < manifesto.length) manifestoTimer = setTimeout(tick, 12);
-        else finishManifesto();
-      };
-      manifestoTimer = setTimeout(tick, 12);
+    function moveCursorTo(parent) {
+      entryCursor.hidden = false;
+      parent.appendChild(entryCursor);
     }
 
-    function finishManifesto() {
-      manifestoText.textContent = manifesto;
-      manifestoCursor.style.display = 'none';
-      manifestoNext.style.display = 'block';
+    function hideCursor() {
+      entryCursor.hidden = true;
+      entryCursor.remove();
     }
 
-    function startDashboard() {
-      show('dashboard');
-      startedAt = Date.now();
-      updateClock();
+    function typeLine(text, speed = 28) {
+      return new Promise((resolve) => {
+        hideCursor();
+        const line = appendLine();
+        const textNode = document.createElement('span');
+        line.append(textNode);
+        moveCursorTo(line);
+        let index = 0;
+        const tick = () => {
+          textNode.textContent = text.slice(0, index);
+          index += 1;
+          if (index <= text.length) window.setTimeout(tick, speed);
+          else {
+            hideCursor();
+            resolve();
+          }
+        };
+        tick();
+      });
     }
 
-    function updateClock() {
-      const now = new Date();
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const uptime = [Math.floor(elapsed / 3600), Math.floor((elapsed % 3600) / 60), elapsed % 60].map((n) => String(n).padStart(2, '0')).join(':');
-      document.getElementById('uptime').textContent = uptime;
-      document.getElementById('datetime').textContent = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR')}`;
+    function setIdentity(name) {
+      activeName = cleanName(name);
     }
 
-    function pushLog() {
-      logEls[2].textContent = logEls[1].textContent;
-      logEls[1].textContent = logEls[0].textContent;
-      logEls[0].textContent = logs[logIndex++ % logs.length];
+    function showContinue(nextAction = 'menu') {
+      canContinue = true;
+      continueAction = nextAction;
+      namePrompt.hidden = true;
+      continuePrompt.hidden = false;
+      continuePrompt.focus();
     }
 
-    form?.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const name = cleanName(input.value);
-      localStorage.setItem('bluefish.identity', name);
-      applyIdentity(name);
-      startManifesto();
+    function goToMenu() {
+      window.location.href = '/menu';
+    }
+
+    async function startManifesto() {
+      canContinue = false;
+      continuePrompt.hidden = true;
+      output.textContent = '';
+      await typeLine("manifesto en cours d'écriture");
+      completeOnboarding(activeName);
+      showContinue('menu');
+    }
+
+    function handleContinue() {
+      if (!canContinue) return;
+      if (continueAction === 'manifesto') startManifesto();
+      else goToMenu();
+    }
+
+    async function startReturningFlow(name) {
+      setIdentity(name);
+      await typeLine(`Welcome Back ${activeName}`);
+      await typeLine('Good to see you here.');
+      showContinue('menu');
+    }
+
+    async function startNewFlow() {
+      await typeLine('Welcome to the Blue Fish Society.');
+      await typeLine('Name ?');
+      namePrompt.hidden = false;
+      moveCursorTo(namePrompt);
+      isCollectingName = true;
+      nameInput.value = '';
+      nameInput.size = 1;
+      nameInput.focus();
+    }
+
+    async function submitName() {
+      if (!isCollectingName) return;
+      const name = cleanName(nameInput.value);
+      if (!nameInput.value.trim()) return;
+      const isKnown = nameExists(name);
+      isCollectingName = false;
+      setIdentity(name);
+      rememberIdentity(name);
+      hideCursor();
+      namePrompt.hidden = true;
+      output.textContent = '';
+      if (isKnown) await startReturningFlow(name);
+      else {
+        await typeLine(`Welcome ${activeName}, please press Enter to continue`);
+        showContinue('manifesto');
+      }
+    }
+
+    nameInput?.addEventListener('input', () => {
+      nameInput.size = Math.max(1, nameInput.value.length);
     });
 
-    manifestoNext?.addEventListener('click', startDashboard);
+    nameInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitName();
+      }
+    });
+
+    continuePrompt?.addEventListener('click', handleContinue);
     document.addEventListener('keydown', (event) => {
-      if (!screens.manifesto.classList.contains('active')) return;
-      if (manifestoNext.style.display === 'none') finishManifesto();
-      else if (event.key !== 'Tab') startDashboard();
+      if (event.key === 'Enter' && canContinue) handleContinue();
     });
 
-    document.querySelector('[data-replay-manifesto]')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      startManifesto();
-    });
-
-    const existingName = localStorage.getItem('bluefish.identity');
-    if (existingName) {
-      applyIdentity(cleanName(existingName));
-      startDashboard();
-    } else {
-      setTimeout(() => input?.focus(), 80);
-    }
-
-    setInterval(updateClock, 1000);
-    setInterval(pushLog, 3200);
+    startNewFlow();
   </script>
 </BaseLayout>
 
 <style>
-  .terminal-view { display: none; min-height: 100vh; }
-  .terminal-view.active { display: block; }
-
-  .prompt {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5ch;
-    flex-wrap: wrap;
-    margin-top: 1rem;
-  }
-
-  .terminal-submit {
-    border: 1px solid var(--wano-green);
-    background: var(--wano-black);
-    color: var(--wano-green);
-    cursor: pointer;
-    padding: 0.25rem 0.6rem;
-    letter-spacing: var(--tracking-wide);
-  }
-
-  .terminal-submit:hover {
-    background: var(--wano-green);
-    color: var(--wano-black);
-  }
-
-  .hint {
-    color: var(--wano-grey-400);
-    font-size: var(--text-sm);
-    margin-top: 1rem;
-  }
-
-  :global(.corner-fish) {
-    position: fixed;
-    right: 2rem;
-    bottom: 1.4rem;
-    max-width: 28rem;
-    overflow: hidden;
-    font-size: 3px;
-    opacity: 0.38;
-  }
-
-  :global(.watermark-fish) {
-    display: block;
-    width: fit-content;
-    max-width: none;
-    margin: 1rem auto 0;
-    overflow: hidden;
-    font-size: 4px;
-    color: var(--wano-green);
-    opacity: 0.92;
-    pointer-events: none;
-    text-shadow: 0 0 7px rgba(31, 243, 224, 0.65);
-    transform: translateX(16%);
-  }
-
-  .manifesto-wrap {
+  .entry-screen {
     min-height: 100vh;
-    padding: 3rem 2rem 5rem;
-    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: var(--wano-black);
   }
 
-  #manifesto-text {
-    max-width: 700px;
-    color: var(--wano-white);
-    font-size: var(--text-lg);
+  .entry-terminal {
+    position: relative;
+    width: min(100%, 820px);
+    min-height: 220px;
+    color: var(--wano-green);
+    font-size: clamp(1rem, 2vw, 1.35rem);
     line-height: var(--leading-relaxed);
+    text-align: center;
+  }
+
+  .terminal-output {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .terminal-line {
+    min-height: 1.8em;
     white-space: pre-wrap;
   }
 
-  .manifesto-cursor {
+  .name-prompt[hidden],
+  .continue-prompt[hidden],
+  :global(.inline-cursor[hidden]) {
+    display: none !important;
+  }
+
+  .name-prompt {
+    display: block;
+    margin-top: 0.2rem;
+    min-height: 1.8em;
+  }
+
+  .name-input {
+    max-width: min(100%, 24ch);
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--wano-white);
+    caret-color: transparent;
+    font: inherit;
+    text-align: center;
+  }
+
+  .name-input:focus {
+    outline: 0;
+  }
+
+  :global(.inline-cursor) {
     display: inline-block;
-    width: 9px;
+    width: 0.55em;
     height: 1.1em;
-    margin-left: 2px;
+    margin-left: 0.08em;
     background: var(--wano-green);
     vertical-align: text-bottom;
   }
 
-  .manifesto-next {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    display: none;
-    transform: translateX(-50%);
+  .continue-prompt {
+    margin-top: 2rem;
     border: 0;
     background: transparent;
     color: var(--wano-green);
     cursor: pointer;
-    font-size: var(--text-sm);
-    white-space: nowrap;
+    font-size: var(--text-md);
+    letter-spacing: var(--tracking-wider);
   }
 
-  .cursor-block {
-    border-right: 8px solid var(--wano-green);
+  .continue-prompt:hover,
+  .continue-prompt:focus-visible {
+    background: var(--wano-green);
+    color: var(--wano-black);
+    outline: none;
   }
 
   @media (max-width: 700px) {
-    :global(.corner-fish),
-    :global(.watermark-fish) { display: none; }
-    .manifesto-wrap { padding: 1.5rem 1rem 5rem; }
-    #manifesto-text { font-size: var(--text-base); }
+    .entry-screen {
+      padding: 1rem;
+    }
   }
 </style>

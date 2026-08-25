@@ -1,5 +1,5 @@
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://bluefish-society.pages.dev',
+  site: 'https://enter.poisson.blue',
 });
