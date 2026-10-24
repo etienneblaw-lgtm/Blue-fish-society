@@ -1,0 +1,162 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Bluefish Society — Manifesto"
+  description="Getting together is an art form. The manifesto of Bluefish Society."
+>
+  <main class="manifesto-page wano-scroll">
+    <a class="back-link" href="/menu">← BACK TO HOMEPAGE</a>
+
+    <section class="manifesto-terminal" aria-labelledby="manifesto-title">
+      <h1 id="manifesto-title" class="sr-only">Bluefish Society manifesto</h1>
+      <div id="terminal-output" class="terminal-output" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    const output = document.getElementById('terminal-output');
+    const cursor = document.createElement('span');
+    cursor.className = 'typewriter-cursor wano-cursor';
+    cursor.setAttribute('aria-hidden', 'true');
+
+    // Source : Second Cerveau/2 - Projets/Blue Fish Society/Textes/Manifesto.md
+    // Même texte que le sas d'entrée (src/pages/index.astro). Chaîne vide = ligne vide.
+    const lines = [
+      'Getting together is an art form.',
+      '',
+      'The dance floor is a frame, music is the paint.',
+      '',
+      'It is the manifestation of our will to share a physical realm and a mental headspace.',
+      'It is, the ultimate affirmation, that we still wish to unite.',
+      'Resisting the forces, that pulls us apart',
+      'A bunch of strangers, intertwined, dancing through the same dream',
+      'Lost in a moment',
+      'For eternity',
+      '',
+      'Bluefish Society is our digital cove.',
+      'Where music have no goals but itself',
+      'We cherish it.',
+      'And celebrate the memories it helped us create.',
+    ];
+    let skipCurrentLine = false;
+    let finished = false;
+
+    function wait(milliseconds) {
+      return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    }
+
+    async function typeLine(text) {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      if (!text) {
+        line.textContent = ' ';
+        output.append(line);
+        await wait(400);
+        return;
+      }
+
+      const textNode = document.createTextNode('');
+      line.append(textNode, cursor);
+      output.append(line);
+
+      for (let index = 0; index <= text.length && !skipCurrentLine; index += 1) {
+        textNode.textContent = text.slice(0, index);
+        await wait(28);
+      }
+
+      const wasSkipped = skipCurrentLine;
+      if (wasSkipped) textNode.textContent = text;
+      skipCurrentLine = false;
+
+      cursor.remove();
+      if (!wasSkipped) await wait(120);
+    }
+
+    function skipTypewriter() {
+      if (!finished) skipCurrentLine = true;
+    }
+
+    document.addEventListener('keydown', skipTypewriter);
+    document.addEventListener('pointerdown', skipTypewriter);
+
+    (async () => {
+      for (const line of lines) await typeLine(line);
+      finished = true;
+      document.removeEventListener('keydown', skipTypewriter);
+      document.removeEventListener('pointerdown', skipTypewriter);
+    })();
+  </script>
+</BaseLayout>
+
+<style>
+  .manifesto-page {
+    min-height: 100vh;
+    padding: 4vh 5vw;
+    background: var(--wano-black);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: clamp(1.5rem, 6vh, 4rem);
+    border-color: transparent;
+    color: var(--wano-grey-400);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-normal);
+  }
+
+  .back-link:hover,
+  .back-link:focus-visible {
+    border-color: var(--wano-green);
+    background: transparent;
+    color: var(--wano-green);
+  }
+
+  /* Le texte entier doit tenir dans l'écran sans scroll, comme dans le sas d'entrée. */
+  .manifesto-terminal {
+    width: min(100%, 52em);
+    color: var(--wano-green);
+    font-size: min(1.05rem, calc((100svh - 9rem) / 26), calc((100vw - 4rem) / 52));
+    line-height: 1.6;
+  }
+
+  .terminal-output {
+    display: grid;
+    gap: 0;
+  }
+
+  .terminal-output :global(.terminal-line) {
+    min-height: 1.6em;
+    white-space: pre-wrap;
+  }
+
+  :global(.typewriter-cursor) {
+    display: inline-block;
+    width: 0.55em;
+    height: 1.1em;
+    margin-left: 0.08em;
+    background: var(--wano-green);
+    vertical-align: text-bottom;
+  }
+
+  @media (max-width: 700px) {
+    .manifesto-page {
+      padding: 4vh 1rem;
+    }
+
+    .manifesto-terminal {
+      font-size: min(0.85rem, calc((100svh - 9rem) / 36));
+    }
+  }
+</style>
