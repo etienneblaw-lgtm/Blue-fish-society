@@ -295,8 +295,21 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     transition: opacity 1.2s ease;
   }
 
+  /* Le manifesto entier (15 lignes + PRESS ENTER) doit tenir dans l'écran sans scroll.
+     La taille suit la hauteur, et la largeur pour garder la ligne la plus longue (85 car.) sur une ligne. */
   .entry-terminal.is-manifesto {
+    width: min(100%, 52em);
     text-align: left;
+    font-size: min(1.05rem, calc((100svh - 4rem) / 30), calc((100vw - 4rem) / 52));
+    line-height: 1.6;
+  }
+
+  .entry-terminal.is-manifesto .terminal-output {
+    gap: 0;
+  }
+
+  .entry-terminal.is-manifesto .continue-prompt {
+    margin-top: 1.5em;
   }
 
   .entry-terminal.is-fading .terminal-output {
@@ -386,6 +399,11 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   @media (max-width: 700px) {
     .entry-screen {
       padding: 1rem;
+    }
+
+    /* Sur mobile les lignes passent à la ligne : environ 21 lignes visibles. */
+    .entry-terminal.is-manifesto {
+      font-size: min(0.85rem, calc((100svh - 2rem) / 40));
     }
   }
 </style>
