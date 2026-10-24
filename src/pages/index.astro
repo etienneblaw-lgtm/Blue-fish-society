@@ -22,7 +22,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         <span id="entry-cursor" class="inline-cursor wano-cursor" aria-hidden="true" hidden></span>
       </div>
     </section>
-
+    <img id="rabbit-flash" class="rabbit-flash" src="/white-rabbit.webp" alt="" aria-hidden="true" />
   </main>
 
   <script>
@@ -31,10 +31,39 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const nameInput = document.getElementById('name-input') as HTMLInputElement;
     const entryCursor = document.getElementById('entry-cursor');
     const continuePrompt = document.getElementById('continue-prompt');
+    const entryScreen = document.getElementById('entry-screen');
+    const entryTerminal = document.querySelector('.entry-terminal');
+    const rabbit = document.getElementById('rabbit-flash') as HTMLImageElement;
+    // Décodé à l'avance pour que le flash tienne sur une seule frame.
+    rabbit?.decode?.().catch(() => {});
     let canContinue = false;
     let continueAction = 'menu';
     let activeName = 'ANONYME';
     let isCollectingName = false;
+
+    // Source : Second Cerveau/2 - Projets/Blue Fish Society/Textes/Manifesto.md
+    // Une chaîne vide = ligne vide entre deux strophes.
+    const MANIFESTO = [
+      'Getting together is an art form.',
+      '',
+      'The dance floor is a frame, music is the paint.',
+      '',
+      'It is the manifestation of our will to share a physical realm and a mental headspace.',
+      'It is, the ultimate affirmation, that we still wish to unite.',
+      'Resisting the forces, that pulls us apart',
+      'A bunch of strangers, intertwined, dancing through the same dream',
+      'Lost in a moment',
+      'For eternity',
+      '',
+      'Bluefish Society is our digital cove.',
+      'Where music have no goals but itself',
+      'We cherish it.',
+      'And celebrate the memories it helped us create.',
+    ];
+
+    function wait(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
     function getOnboardedNames() {
       try {
         const stored = localStorage.getItem('bluefish.onboardedNames');
@@ -105,7 +134,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
           if (index <= text.length) window.setTimeout(tick, speed);
           else {
             hideCursor();
-            resolve();
+            resolve(line);
           }
         };
         tick();
@@ -132,9 +161,50 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       canContinue = false;
       continuePrompt.hidden = true;
       output.textContent = '';
-      await typeLine("manifesto en cours d'écriture");
+      entryTerminal.classList.add('is-manifesto');
+      // Le lapin flashe au début de la ligne qui passe la moitié du texte.
+      const half = MANIFESTO.join('').length / 2;
+      let typedChars = 0;
+      let rabbitShown = false;
+      for (const line of MANIFESTO) {
+        if (!rabbitShown && typedChars >= half) {
+          await flashRabbit();
+          rabbitShown = true;
+        }
+        if (line) await typeLine(line);
+        else {
+          appendLine().textContent = ' ';
+          await wait(500);
+        }
+        typedChars += line.length;
+      }
       completeOnboarding(activeName);
       showContinue('menu');
+      window.setTimeout(startWakeUp, 5000);
+    }
+
+    async function flashRabbit() {
+      rabbit.classList.add('is-visible');
+      await wait(90);
+      rabbit.classList.remove('is-visible');
+    }
+
+    // Façon intro de Matrix : si la personne reste 5 s sur le manifesto.
+    async function startWakeUp() {
+      continuePrompt.hidden = true;
+      entryTerminal.classList.add('is-fading');
+      await wait(1200);
+      output.textContent = '';
+      entryTerminal.classList.remove('is-fading');
+      entryScreen.classList.add('is-wakeup');
+      const blankLine = appendLine();
+      moveCursorTo(blankLine);
+      await wait(2000);
+      blankLine.remove();
+      const wakeLine = await typeLine(`Wake up, ${activeName}...`, 110);
+      moveCursorTo(wakeLine);
+      await wait(3000);
+      continuePrompt.hidden = false;
     }
 
     function handleContinue() {
@@ -222,6 +292,36 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   .terminal-output {
     display: grid;
     gap: 0.2rem;
+    transition: opacity 1.2s ease;
+  }
+
+  .entry-terminal.is-manifesto {
+    text-align: left;
+  }
+
+  .entry-terminal.is-fading .terminal-output {
+    opacity: 0;
+  }
+
+  .entry-screen.is-wakeup {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .rabbit-flash {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(80vw, 80vh);
+    height: min(80vw, 80vh);
+    object-fit: contain;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .rabbit-flash.is-visible {
+    visibility: visible;
   }
 
   .terminal-line {
