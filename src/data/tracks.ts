@@ -8,7 +8,10 @@ export interface Track {
   year: number;
   type: TrackType;
   tags: string[];
+  /** URL du MP3 sur R2. Vide = pas d'audio (le mix reste hors radio). */
   src: string;
+  /** Durée exacte en secondes (mesurée par le script prepare_mix). Obligatoire pour entrer dans la radio. */
+  durationSec?: number;
   duration: string;
   desc: string;
   manifesto: string;
@@ -25,7 +28,8 @@ export const tracks: Track[] = [
     type: 'release',
     tags: ['techno', 'archive'],
     src: 'https://pub-9a8f003b7d5e4d5f870f2a0899a42cd1.r2.dev/Tirage%20suspens.mp3',
-    duration: '60:00',
+    durationSec: 43.61,
+    duration: '0:44',
     desc: 'Premiere transmission test. Architecture sonore autonome.',
     manifesto: 'Une frequence suspendue. Un protocole d entree. Un fichier qui refuse de devenir contenu.',
     asciiSeed: 'suspens',

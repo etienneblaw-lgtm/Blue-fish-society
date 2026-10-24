@@ -2,7 +2,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
-<BaseLayout title="Bluefish Society — Terminal">
+<BaseLayout title="Bluefish Society — Terminal" entry>
   <main class="screen wano-scroll">
     <section id="entry-screen" class="entry-screen" aria-label="Entrée Bluefish Society">
       <div class="entry-terminal" aria-live="polite">
@@ -26,6 +26,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   </main>
 
   <script>
+    import { onPage } from '@/lib/page';
+    import { navigate } from 'astro:transitions/client';
+
+    onPage('#entry-screen', (_root, { signal, wait }) => {
     const output = document.getElementById('terminal-output');
     const namePrompt = document.getElementById('name-prompt');
     const nameInput = document.getElementById('name-input') as HTMLInputElement;
@@ -61,9 +65,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       'And celebrate the memories it helped us create.',
     ];
 
-    function wait(ms) {
-      return new Promise((resolve) => window.setTimeout(resolve, ms));
-    }
     function getOnboardedNames() {
       try {
         const stored = localStorage.getItem('bluefish.onboardedNames');
@@ -131,7 +132,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         const tick = () => {
           textNode.textContent = text.slice(0, index);
           index += 1;
-          if (index <= text.length) window.setTimeout(tick, speed);
+          if (index <= text.length) wait(speed).then(tick);
           else {
             hideCursor();
             resolve(line);
@@ -154,7 +155,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     }
 
     function goToMenu() {
-      window.location.href = '/menu';
+      navigate('/menu');
     }
 
     async function startManifesto() {
@@ -180,7 +181,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       }
       completeOnboarding(activeName);
       showContinue('menu');
-      window.setTimeout(startWakeUp, 5000);
+      wait(5000).then(startWakeUp);
     }
 
     async function flashRabbit() {
@@ -242,6 +243,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       hideCursor();
       namePrompt.hidden = true;
       output.textContent = '';
+      // Geste de l'utilisateur : le navigateur autorise le son, la radio démarre.
+      (window as any).bfPlayer?.start();
       if (isKnown) await startReturningFlow(name);
       else {
         await typeLine(`Welcome ${activeName}, please press Enter to continue`);
@@ -261,11 +264,16 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     });
 
     continuePrompt?.addEventListener('click', handleContinue);
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && canContinue) handleContinue();
-    });
+    document.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key === 'Enter' && canContinue) handleContinue();
+      },
+      { signal },
+    );
 
     startNewFlow();
+    });
   </script>
 </BaseLayout>
 

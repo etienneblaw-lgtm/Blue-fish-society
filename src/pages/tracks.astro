@@ -35,145 +35,77 @@ import { filters, tracks } from '@/data/tracks';
     <div class="empty" id="empty-state" hidden>[ NO TRACKS FOUND ]</div>
   </main>
 
-  <aside class="global-player" id="global-player" aria-label="Lecteur audio global">
-    <div class="gp-info">
-      <div class="gp-title" id="gp-title">—</div>
-      <div class="gp-meta" id="gp-meta">—</div>
-    </div>
-    <div class="gp-controls">
-      <button id="gp-prev" type="button">◀◀</button>
-      <button id="gp-toggle" type="button">▶ PLAY</button>
-      <button id="gp-next" type="button">▶▶</button>
-    </div>
-    <div class="gp-progress-wrap">
-      <div class="gp-time" id="gp-time">0:00 / 0:00</div>
-      <button class="gp-bar" id="gp-bar" type="button" aria-label="Changer la progression"><span id="gp-fill"></span></button>
-    </div>
-    <label class="gp-volume">VOL <input id="gp-volume" type="range" min="0" max="1" step="0.01" value="1" /></label>
-    <audio id="audio-engine" preload="none"></audio>
-  </aside>
-
   <script>
-    const cards = Array.from(document.querySelectorAll('[data-track-card]'));
-    const buttons = Array.from(document.querySelectorAll('[data-play-button]'));
-    const searchInput = document.getElementById('search-input');
-    const filters = document.getElementById('filters');
-    const empty = document.getElementById('empty-state');
-    const player = document.getElementById('global-player');
-    const audio = document.getElementById('audio-engine');
-    const gpTitle = document.getElementById('gp-title');
-    const gpMeta = document.getElementById('gp-meta');
-    const gpToggle = document.getElementById('gp-toggle');
-    const gpPrev = document.getElementById('gp-prev');
-    const gpNext = document.getElementById('gp-next');
-    const gpTime = document.getElementById('gp-time');
-    const gpBar = document.getElementById('gp-bar');
-    const gpFill = document.getElementById('gp-fill');
-    const gpVolume = document.getElementById('gp-volume');
-    let currentFilter = 'all';
-    let currentIndex = -1;
+    import { onPage } from '@/lib/page';
 
-    const playableCards = cards.filter((card) => card.dataset.trackSrc);
+    onPage('#track-grid', (_root, { signal }) => {
+      const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-track-card]'));
+      const searchInput = document.getElementById('search-input') as HTMLInputElement;
+      const filters = document.getElementById('filters')!;
+      const empty = document.getElementById('empty-state')!;
+      const player = (window as any).bfPlayer;
+      let currentFilter = 'all';
 
-    function formatTime(seconds) {
-      if (!seconds || Number.isNaN(seconds)) return '0:00';
-      return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-    }
+      // Les boutons lecture pilotent le lecteur unique du site (mode MIX).
+      function refreshCards(detail: { slug: string | null; state: string }) {
+        cards.forEach((card) => {
+          const isPlaying = detail.slug === card.dataset.trackSlug && detail.state === 'playing';
+          card.classList.toggle('playing', isPlaying);
+          const button = card.querySelector('[data-play-button]');
+          if (button && card.dataset.trackSrc) {
+            button.textContent = isPlaying ? '⏸' : '▶';
+            button.setAttribute('aria-label', isPlaying ? `Mettre ${card.dataset.trackTitle} en pause` : `Lire ${card.dataset.trackTitle}`);
+          }
+        });
+      }
 
-    function refreshCards() {
-      cards.forEach((card, index) => {
-        const isPlaying = index === currentIndex && !audio.paused;
-        card.classList.toggle('playing', isPlaying);
-        const button = card.querySelector('[data-play-button]');
-        if (button && card.dataset.trackSrc) {
-          button.textContent = isPlaying ? '⏸' : '▶';
-          button.setAttribute('aria-label', isPlaying ? `Mettre ${card.dataset.trackTitle} en pause` : `Lire ${card.dataset.trackTitle}`);
-        }
-      });
-      gpToggle.textContent = audio.paused ? '▶ PLAY' : '⏸ PAUSE';
-    }
+      function applyFilters() {
+        const query = searchInput.value.toLowerCase().trim();
+        let visibleCount = 0;
+        cards.forEach((card) => {
+          const haystack = `${card.dataset.trackTitle} ${card.dataset.trackArtist} ${card.dataset.trackMeta}`.toLowerCase();
+          const type = card.dataset.trackMeta!.split(' · ')[1];
+          const visible = (currentFilter === 'all' || type === currentFilter) && (!query || haystack.includes(query));
+          card.hidden = !visible;
+          if (visible) visibleCount += 1;
+        });
+        empty.hidden = visibleCount !== 0;
+      }
 
-    function loadTrack(index) {
-      const card = cards[index];
-      if (!card || !card.dataset.trackSrc) return;
-      currentIndex = index;
-      audio.src = card.dataset.trackSrc;
-      audio.load();
-      audio.play().catch(() => undefined);
-      player.classList.add('visible');
-      gpTitle.textContent = card.dataset.trackTitle;
-      gpMeta.textContent = `${card.dataset.trackArtist} · ${card.dataset.trackMeta}`;
-      refreshCards();
-    }
-
-    function adjacent(direction) {
-      if (currentIndex < 0) return null;
-      const currentCard = cards[currentIndex];
-      const pos = playableCards.indexOf(currentCard);
-      const next = playableCards[pos + direction];
-      return next ? cards.indexOf(next) : null;
-    }
-
-    function applyFilters() {
-      const query = searchInput.value.toLowerCase().trim();
-      let visibleCount = 0;
       cards.forEach((card) => {
-        const haystack = `${card.dataset.trackTitle} ${card.dataset.trackArtist} ${card.dataset.trackMeta}`.toLowerCase();
-        const type = card.dataset.trackMeta.split(' · ')[1];
-        const visible = (currentFilter === 'all' || type === currentFilter) && (!query || haystack.includes(query));
-        card.hidden = !visible;
-        if (visible) visibleCount += 1;
+        card.querySelector('[data-play-button]')?.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          player?.playMix(card.dataset.trackSlug);
+        });
       });
-      empty.hidden = visibleCount !== 0;
-    }
 
-    buttons.forEach((button, index) => {
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (currentIndex === index && !audio.paused) audio.pause();
-        else if (currentIndex === index) audio.play().catch(() => undefined);
-        else loadTrack(index);
+      filters.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLButtonElement)) return;
+        currentFilter = target.dataset.filter!;
+        filters.querySelectorAll('button').forEach((button) => button.classList.toggle('active', button === target));
+        applyFilters();
       });
-    });
 
-    filters.addEventListener('click', (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLButtonElement)) return;
-      currentFilter = target.dataset.filter;
-      filters.querySelectorAll('button').forEach((button) => button.classList.toggle('active', button === target));
-      applyFilters();
-    });
+      searchInput.addEventListener('input', applyFilters);
 
-    searchInput.addEventListener('input', applyFilters);
-    gpToggle.addEventListener('click', () => currentIndex >= 0 && (audio.paused ? audio.play() : audio.pause()));
-    gpPrev.addEventListener('click', () => { const index = adjacent(-1); if (index !== null) loadTrack(index); });
-    gpNext.addEventListener('click', () => { const index = adjacent(1); if (index !== null) loadTrack(index); });
-    gpVolume.addEventListener('input', () => { audio.volume = Number(gpVolume.value); });
-    gpBar.addEventListener('click', (event) => {
-      if (!audio.duration) return;
-      const rect = gpBar.getBoundingClientRect();
-      audio.currentTime = ((event.clientX - rect.left) / rect.width) * audio.duration;
-    });
-
-    audio.addEventListener('play', refreshCards);
-    audio.addEventListener('pause', refreshCards);
-    audio.addEventListener('ended', () => { const index = adjacent(1); if (index !== null) loadTrack(index); });
-    audio.addEventListener('timeupdate', () => {
-      if (!audio.duration) return;
-      gpFill.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
-      gpTime.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
-    });
-
-    document.addEventListener('keydown', (event) => {
-      if (event.key === '/' && document.activeElement !== searchInput) {
-        event.preventDefault();
-        searchInput.focus();
+      document.addEventListener('bf:player-state', (event) => refreshCards((event as CustomEvent).detail), { signal });
+      if (player) {
+        const { mode, slug, playing } = player.state();
+        refreshCards({ slug: mode === 'mix' ? slug : null, state: playing ? 'playing' : 'paused' });
       }
-      if (event.key === ' ' && document.activeElement !== searchInput && currentIndex >= 0) {
-        event.preventDefault();
-        audio.paused ? audio.play() : audio.pause();
-      }
+
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === '/' && document.activeElement !== searchInput) {
+            event.preventDefault();
+            searchInput.focus();
+          }
+        },
+        { signal },
+      );
     });
   </script>
 </BaseLayout>
@@ -183,7 +115,7 @@ import { filters, tracks } from '@/data/tracks';
     width: min(100%, 940px);
     min-height: calc(100vh - 73px);
     margin: 0 auto;
-    padding: 2.5rem 1.25rem 7rem;
+    padding: 2.5rem 1.25rem 2.5rem;
   }
 
   .archive-intro {
@@ -264,8 +196,7 @@ import { filters, tracks } from '@/data/tracks';
 
   .filters { display: flex; flex-wrap: wrap; gap: 0.2rem; }
 
-  .filters button,
-  .gp-controls button {
+  .filters button {
     border: 1px solid transparent;
     border-radius: 0;
     background: var(--wano-black);
@@ -278,8 +209,7 @@ import { filters, tracks } from '@/data/tracks';
   }
 
   .filters button:hover,
-  .filters button.active,
-  .gp-controls button:hover {
+  .filters button.active {
     border-color: var(--wano-green);
     background: var(--wano-green-005);
     color: var(--wano-green);
@@ -297,73 +227,17 @@ import { filters, tracks } from '@/data/tracks';
     color: var(--wano-grey-400);
   }
 
-  .global-player {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 100;
-    display: none;
-    align-items: center;
-    gap: 1.25rem;
-    min-height: 62px;
-    padding: 0.65rem max(1rem, calc((100vw - 940px) / 2));
-    border-top: 1px solid var(--wano-green);
-    background: var(--wano-black);
-  }
-
-  .global-player.visible { display: flex; }
-  .gp-info { flex: 0 0 240px; overflow: hidden; }
-  .gp-title { color: var(--wano-green); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gp-meta { margin-top: 0.2rem; color: var(--wano-white); font-size: 0.75rem; opacity: 0.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gp-controls { display: flex; gap: 0.8rem; }
-  .gp-progress-wrap { display: flex; flex: 1; align-items: center; gap: 0.8rem; }
-  .gp-time { flex: 0 0 88px; color: var(--wano-white); font-size: 0.75rem; opacity: 0.6; text-align: right; }
-
-  .gp-bar {
-    flex: 1;
-    height: 3px;
-    border: 0;
-    background: var(--wano-grey-700);
-    cursor: pointer;
-    padding: 0;
-    text-align: left;
-  }
-
-  .gp-bar span {
-    display: block;
-    width: 0%;
-    height: 100%;
-    background: var(--wano-green);
-  }
-
-  .gp-volume {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--wano-white);
-    font-size: 0.75rem;
-    opacity: 0.6;
-  }
-
-  .gp-volume input { width: 70px; }
-
   @media (max-width: 800px) {
     .archive { padding-top: 1.75rem; }
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .controls { align-items: flex-start; flex-direction: column; }
     .search-box { width: 100%; min-width: 0; }
-    .global-player { gap: 0.8rem; padding: 0.7rem 1rem; }
-    .gp-info { flex: 0 0 140px; }
-    .gp-volume { display: none; }
   }
 
   @media (max-width: 520px) {
-    .archive { padding: 1.4rem 0.8rem 6rem; }
+    .archive { padding: 1.4rem 0.8rem 2rem; }
     .archive-heading { align-items: flex-start; flex-direction: column; gap: 0.65rem; }
     .grid { grid-template-columns: 1fr; }
     .filters { width: 100%; }
-    .gp-info { display: none; }
-    .gp-time { display: none; }
   }
 </style>

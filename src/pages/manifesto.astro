@@ -16,6 +16,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   </main>
 
   <script>
+    import { onPage } from '@/lib/page';
+
+    onPage('.manifesto-terminal', (_root, { signal, wait }) => {
     const output = document.getElementById('terminal-output');
     const cursor = document.createElement('span');
     cursor.className = 'typewriter-cursor wano-cursor';
@@ -42,10 +45,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     ];
     let skipCurrentLine = false;
     let finished = false;
-
-    function wait(milliseconds) {
-      return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-    }
 
     async function typeLine(text) {
       const line = document.createElement('div');
@@ -78,8 +77,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       if (!finished) skipCurrentLine = true;
     }
 
-    document.addEventListener('keydown', skipTypewriter);
-    document.addEventListener('pointerdown', skipTypewriter);
+    document.addEventListener('keydown', skipTypewriter, { signal });
+    document.addEventListener('pointerdown', skipTypewriter, { signal });
 
     (async () => {
       for (const line of lines) await typeLine(line);
@@ -87,6 +86,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       document.removeEventListener('keydown', skipTypewriter);
       document.removeEventListener('pointerdown', skipTypewriter);
     })();
+    });
   </script>
 </BaseLayout>
 

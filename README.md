@@ -19,3 +19,7 @@ npm run build
 ## Source design
 
 Le design system source est dans `../WANO Terminal Design System`.
+
+## Audio et radio
+
+Voir `AUDIO.md` (radio calculée sur l'heure, lecteur persistant, ajout d'un mix).

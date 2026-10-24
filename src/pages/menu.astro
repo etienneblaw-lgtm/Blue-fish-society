@@ -60,6 +60,9 @@ import BrandFish from '@/components/BrandFish.astro';
   </main>
 
   <script>
+    import { onPage } from '@/lib/page';
+
+    onPage('#dashboard-name', (_root, { signal }) => {
     const name = localStorage.getItem('bluefish.identity');
 
     if (!name) window.location.replace('/');
@@ -81,7 +84,9 @@ import BrandFish from '@/components/BrandFish.astro';
     }
 
     updateClock();
-    setInterval(updateClock, 1000);
+    const clock = window.setInterval(updateClock, 1000);
+    signal.addEventListener('abort', () => window.clearInterval(clock));
+    });
   </script>
 </BaseLayout>
 

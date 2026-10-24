@@ -11,7 +11,7 @@ const { track, index } = Astro.props;
 const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
 ---
 
-<article class:list={['track-card', `track-${track.type}`]} data-track-card data-track-id={track.id} data-track-title={track.title} data-track-artist={track.artist} data-track-src={track.src} data-track-meta={`${track.year} · ${track.type} · ${track.tags.join(', ')}`}>
+<article class:list={['track-card', `track-${track.type}`]} data-track-card data-track-id={track.id} data-track-slug={track.slug} data-track-title={track.title} data-track-artist={track.artist} data-track-src={track.src} data-track-meta={`${track.year} · ${track.type} · ${track.tags.join(', ')}`}>
   <a class="card-link" href={`/mixes/${track.slug}`} aria-label={`Ouvrir ${track.title}`}></a>
   <div class="card-art" aria-hidden="true">
     <div class="art-register">BF/{String(index + 1).padStart(3, '0')}</div>

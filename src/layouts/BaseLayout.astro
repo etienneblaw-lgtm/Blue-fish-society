@@ -1,14 +1,19 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import '@/styles/global.css';
+import RadioPlayer from '@/components/RadioPlayer.astro';
 
 interface Props {
   title?: string;
   description?: string;
+  /** Sas d'entrée : pas de lecteur visible, pas de raccourcis clavier audio. */
+  entry?: boolean;
 }
 
 const {
   title = 'Bluefish Society',
   description = 'Radio d archives. Galerie ASCII de mixes audio.',
+  entry = false,
 } = Astro.props;
 ---
 
@@ -20,8 +25,25 @@ const {
     <meta name="description" content={description} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>{title}</title>
+    <ClientRouter fallback="none" />
   </head>
-  <body>
+  <body data-entry={entry ? '' : undefined}>
     <slot />
+    <RadioPlayer />
   </body>
 </html>
+
+<style is:global>
+  /* Laisse la place au lecteur fixe en bas de page, sans forcer de scroll sur les pages courtes. */
+  body:not([data-entry]) main::after {
+    content: '';
+    display: block;
+    height: 3.5rem;
+  }
+
+  @media (max-width: 800px) {
+    body:not([data-entry]) main::after {
+      height: 5.5rem;
+    }
+  }
+</style>

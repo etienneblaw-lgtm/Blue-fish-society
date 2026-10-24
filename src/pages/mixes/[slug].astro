@@ -24,7 +24,9 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
         <p class="artist">{track.artist} · {track.year} · {track.type} · {track.duration}</p>
         <p class="manifesto">{track.manifesto}</p>
         <div class="tags">{track.tags.map((tag) => <span>{tag}</span>)}</div>
-        {track.src ? <audio controls preload="none" src={track.src}></audio> : <div class="no-source">⊘ SOURCE AUDIO EN ATTENTE</div>}
+        {track.src && track.durationSec
+          ? <button class="mix-play" id="mix-play" type="button" data-slug={track.slug}>▶ PLAY THIS MIX</button>
+          : <div class="no-source">⊘ SOURCE AUDIO EN ATTENTE</div>}
       </div>
       <div class="artwork" aria-label="Oeuvre ASCII du mix">
         <pre>{art}</pre>
@@ -32,6 +34,29 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
       </div>
     </section>
   </main>
+
+  <script>
+    import { onPage } from '@/lib/page';
+
+    onPage('#mix-play', (button, { signal }) => {
+      const slug = button.dataset.slug!;
+      const player = (window as any).bfPlayer;
+
+      function refresh(detail: { slug: string | null; state: string }) {
+        const isThisMix = detail.slug === slug;
+        const isPlaying = isThisMix && detail.state === 'playing';
+        button.textContent = isPlaying ? '⏸ PAUSE' : isThisMix ? '▶ RESUME' : '▶ PLAY THIS MIX';
+        button.classList.toggle('active', isPlaying);
+      }
+
+      button.addEventListener('click', () => player?.playMix(slug));
+      document.addEventListener('bf:player-state', (event) => refresh((event as CustomEvent).detail), { signal });
+      if (player) {
+        const { mode, slug: playingSlug, playing } = player.state();
+        refresh({ slug: mode === 'mix' ? playingSlug : null, state: playing ? 'playing' : 'paused' });
+      }
+    });
+  </script>
 </BaseLayout>
 
 <style>
@@ -100,9 +125,23 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
     font-size: var(--text-xs);
   }
 
-  audio {
+  .mix-play {
     width: 100%;
-    filter: hue-rotate(130deg) saturate(0.6);
+    padding: 0.85rem;
+    border: 1px solid var(--wano-green);
+    background: transparent;
+    color: var(--wano-green);
+    font: inherit;
+    letter-spacing: var(--tracking-wider);
+    cursor: pointer;
+  }
+
+  .mix-play:hover,
+  .mix-play:focus-visible,
+  .mix-play.active {
+    background: var(--wano-green);
+    color: var(--wano-black);
+    outline: none;
   }
 
   .no-source {

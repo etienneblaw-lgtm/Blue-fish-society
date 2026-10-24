@@ -7,7 +7,7 @@ const track = tracks.find(({ slug }) => slug === 'tirage-suspens');
 if (!track) throw new Error('Track tirage-suspens not found');
 ---
 
-<BaseLayout title="Bluefish Lab — Tirage suspens" description="Prototype d'expérience générative pour Tirage suspens.">
+<BaseLayout title="Bluefish Lab — Tirage suspens" description="Prototype d'expérience générative pour Tirage suspens." entry>
   <main class="experience" id="experience">
     <canvas id="art-canvas" aria-hidden="true"></canvas>
 

@@ -1,0 +1,436 @@
+---
+// Lecteur unique du site. Persistant d'une page à l'autre (transition:persist) :
+// la musique ne s'arrête pas quand on navigue.
+// Deux modes : RADIO (diffusion calculée sur l'heure, voir src/lib/radio.ts)
+// et MIX (un mix choisi, lu depuis le début, pause classique).
+import { tracks } from '@/data/tracks';
+
+const playable = tracks
+  .filter((track) => track.src && (track.durationSec ?? 0) > 0)
+  .map(({ id, slug, title, artist, year, type, tags, src, durationSec }) => ({
+    id, slug, title, artist, year, type, tags, src, durationSec,
+  }));
+---
+
+<aside
+  id="bf-player"
+  class="bf-player"
+  data-mode="radio"
+  data-state={playable.length ? 'paused' : 'empty'}
+  aria-label="Lecteur audio Bluefish"
+  transition:persist="bf-player"
+>
+  <audio id="bf-audio" preload="none"></audio>
+  <script is:inline type="application/json" id="bf-radio-data" set:html={JSON.stringify(playable)} />
+
+  <div class="bp-status">
+    <span class="bp-dot" aria-hidden="true"></span>
+    <span class="bp-mode" id="bp-mode">ON AIR</span>
+  </div>
+
+  <div class="bp-info">
+    <span class="bp-title" id="bp-title">—</span>
+    <span class="bp-meta" id="bp-meta"></span>
+  </div>
+
+  <div class="bp-progress">
+    <span class="bp-time" id="bp-time">0:00 / 0:00</span>
+    <button class="bp-bar" id="bp-bar" type="button" tabindex="-1" aria-label="Changer la progression"><span id="bp-fill"></span></button>
+  </div>
+
+  <div class="bp-controls">
+    <button id="bp-radio" class="bp-radio" type="button" hidden>◉ RADIO</button>
+    <button id="bp-toggle" type="button">▶ TUNE IN</button>
+    <button id="bp-mute" type="button" aria-pressed="false">MUTE</button>
+    <label class="bp-volume">VOL <input id="bp-volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" /></label>
+  </div>
+</aside>
+
+<script>
+  import { nowPlaying, formatClock, type RadioItem } from '@/lib/radio';
+
+  interface PlayerTrack extends RadioItem {
+    slug: string;
+    title: string;
+    artist: string;
+    year: number;
+    type: string;
+    tags: string[];
+    src: string;
+  }
+
+  type Mode = 'radio' | 'mix';
+  type Prefs = { muted: boolean; volume: number; radioOff: boolean };
+
+  const root = document.getElementById('bf-player')!;
+  const audio = document.getElementById('bf-audio') as HTMLAudioElement;
+  const el = {
+    mode: document.getElementById('bp-mode')!,
+    title: document.getElementById('bp-title')!,
+    meta: document.getElementById('bp-meta')!,
+    time: document.getElementById('bp-time')!,
+    bar: document.getElementById('bp-bar') as HTMLButtonElement,
+    fill: document.getElementById('bp-fill')!,
+    toggle: document.getElementById('bp-toggle') as HTMLButtonElement,
+    mute: document.getElementById('bp-mute') as HTMLButtonElement,
+    volume: document.getElementById('bp-volume') as HTMLInputElement,
+    radio: document.getElementById('bp-radio') as HTMLButtonElement,
+  };
+
+  const tracks: PlayerTrack[] = JSON.parse(document.getElementById('bf-radio-data')!.textContent || '[]');
+  const bySlug = new Map(tracks.map((track) => [track.slug, track]));
+  const byId = new Map(tracks.map((track) => [track.id, track]));
+
+  // ── Préférences (mémorisées entre les visites) ─────────────────────────────
+  const PREF_KEY = 'bluefish.audio';
+  const prefs: Prefs = { muted: false, volume: 1, radioOff: false };
+  try {
+    Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || '{}'));
+  } catch {
+    // Le site reste utilisable sans stockage.
+  }
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+    } catch {
+      // idem
+    }
+  }
+
+  // ── État ────────────────────────────────────────────────────────────────────
+  let mode: Mode = 'radio';
+  let current: PlayerTrack | null = null;
+  let blocked = false; // le navigateur a refusé de lancer le son sans geste
+  let clockOffsetMs = 0;
+
+  audio.volume = Math.min(1, Math.max(0, prefs.volume));
+  audio.muted = prefs.muted;
+  el.volume.value = String(audio.volume);
+
+  // ── Horloge commune ─────────────────────────────────────────────────────────
+  // Toutes les écoutes se calent sur l'heure du serveur, pas sur celle de l'ordinateur.
+  const nowSec = () => (Date.now() + clockOffsetMs) / 1000;
+
+  async function syncClock() {
+    const samples: number[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      try {
+        const t0 = Date.now();
+        const response = await fetch(`/favicon.svg?clock=${t0}-${i}`, { method: 'HEAD', cache: 'no-store' });
+        const t1 = Date.now();
+        const header = response.headers.get('date');
+        if (header) samples.push(Date.parse(header) + 500 - (t0 + t1) / 2); // +500 : l'en-tête est tronqué à la seconde
+      } catch {
+        // hors ligne : on garde l'horloge locale
+      }
+    }
+    if (samples.length) {
+      samples.sort((a, b) => a - b);
+      clockOffsetMs = samples[Math.floor(samples.length / 2)];
+    }
+  }
+
+  // ── Lecture ─────────────────────────────────────────────────────────────────
+  function sameSource(track: PlayerTrack) {
+    return audio.getAttribute('src') === track.src;
+  }
+
+  async function loadAndPlay(track: PlayerTrack, startAt: number) {
+    current = track;
+    const safeStart = Math.max(0, Math.min(startAt, track.durationSec - 0.3));
+    if (!sameSource(track)) {
+      audio.src = track.src;
+      audio.load();
+    }
+    audio.currentTime = safeStart; // avant les métadonnées : devient la position de départ
+    try {
+      await audio.play();
+      blocked = false;
+    } catch (error) {
+      if ((error as DOMException)?.name === 'NotAllowedError') blocked = true;
+      else console.warn('[bluefish] lecture impossible', error);
+    }
+    updateMediaSession();
+    render();
+  }
+
+  /** Se cale sur la diffusion en cours. */
+  function tuneIn() {
+    const np = nowPlaying(tracks, nowSec());
+    if (!np) return render();
+    mode = 'radio';
+    prefs.radioOff = false;
+    savePrefs();
+    const track = byId.get(np.item.id)!;
+    return loadAndPlay(track, np.offsetSec);
+  }
+
+  function playMix(slug: string) {
+    const track = bySlug.get(slug);
+    if (!track) return false;
+    if (mode === 'mix' && current?.slug === slug) {
+      togglePlay();
+      return true;
+    }
+    mode = 'mix';
+    loadAndPlay(track, 0);
+    return true;
+  }
+
+  function togglePlay() {
+    if (!current && !tracks.length) return;
+    if (blocked || audio.paused) {
+      if (mode === 'radio') tuneIn(); // reprendre la radio = retomber sur le direct
+      else audio.play().then(() => { blocked = false; render(); }).catch(() => undefined);
+    } else {
+      audio.pause();
+      if (mode === 'radio') {
+        prefs.radioOff = true;
+        savePrefs();
+      }
+    }
+    render();
+  }
+
+  function toggleMute() {
+    audio.muted = !audio.muted;
+    prefs.muted = audio.muted;
+    savePrefs();
+    render();
+  }
+
+  /** À appeler depuis un geste de l'utilisateur (le sas d'entrée) : lance la radio, son autorisé. */
+  function start() {
+    if (tracks.length) tuneIn();
+  }
+
+  // ── Affichage ───────────────────────────────────────────────────────────────
+  function render() {
+    const hasTracks = tracks.length > 0;
+    const playing = !audio.paused && !blocked;
+    const state = !hasTracks ? 'empty' : blocked ? 'blocked' : playing ? 'playing' : 'paused';
+    root.dataset.state = state;
+    root.dataset.mode = mode;
+
+    el.mode.textContent = mode === 'radio' ? 'ON AIR' : 'MIX';
+    el.title.textContent = current ? current.title.toUpperCase() : 'BLUEFISH RADIO';
+    el.meta.textContent = current ? `${current.artist} · ${current.year}` : 'Press play to tune in';
+    el.toggle.textContent = blocked || (audio.paused && !current) ? '▶ TUNE IN' : playing ? '⏸ PAUSE' : '▶ PLAY';
+    el.mute.textContent = audio.muted ? 'UNMUTE' : 'MUTE';
+    el.mute.setAttribute('aria-pressed', String(audio.muted));
+    el.radio.hidden = mode !== 'mix';
+    el.bar.tabIndex = mode === 'mix' ? 0 : -1;
+    renderProgress();
+
+    document.dispatchEvent(
+      new CustomEvent('bf:player-state', {
+        detail: { mode, state, slug: mode === 'mix' ? current?.slug ?? null : null, muted: audio.muted },
+      }),
+    );
+  }
+
+  function renderProgress() {
+    if (!current) return;
+    const total = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : current.durationSec;
+    const position = Math.min(audio.currentTime, total);
+    el.fill.style.width = `${(position / total) * 100}%`;
+    el.time.textContent = `${formatClock(position)} / ${formatClock(total)}`;
+  }
+
+  function updateMediaSession() {
+    if (!('mediaSession' in navigator) || !current) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: current.title,
+      artist: current.artist,
+      album: mode === 'radio' ? 'Bluefish Society · On air' : 'Bluefish Society',
+    });
+  }
+
+  // ── Surveillance de la diffusion ────────────────────────────────────────────
+  // Toutes les 5 s en mode radio : si on a décroché (coupure réseau, onglet gelé), on se recale.
+  window.setInterval(() => {
+    if (mode !== 'radio' || audio.paused || blocked) return;
+    const np = nowPlaying(tracks, nowSec());
+    if (!np) return;
+    if (!current || np.item.id !== current.id) {
+      tuneIn();
+    } else if (Math.abs(audio.currentTime - np.offsetSec) > 4 && audio.readyState >= 3) {
+      audio.currentTime = Math.min(np.offsetSec, current.durationSec - 0.3);
+    }
+  }, 5000);
+
+  // ── Événements ──────────────────────────────────────────────────────────────
+  audio.addEventListener('play', render);
+  audio.addEventListener('pause', render);
+  audio.addEventListener('timeupdate', renderProgress);
+  audio.addEventListener('loadedmetadata', renderProgress);
+  audio.addEventListener('ended', () => {
+    // Fin d'un mix ou d'un passage radio : on retombe sur le direct.
+    // Le fichier peut finir quelques centièmes avant la durée planifiée : on attend la vraie
+    // frontière pour ne pas rejouer la fin du mix qui vient de se terminer.
+    const np = nowPlaying(tracks, nowSec());
+    if (mode === 'radio' && np && current && np.item.id === current.id && np.remainingSec < 3) {
+      window.setTimeout(tuneIn, np.remainingSec * 1000 + 30);
+    } else {
+      tuneIn();
+    }
+  });
+  audio.addEventListener('error', () => {
+    console.warn('[bluefish] erreur audio', audio.error);
+    // Nouvelle tentative sur le direct après un court délai.
+    if (mode === 'radio') window.setTimeout(() => !audio.paused && tuneIn(), 4000);
+  });
+
+  el.toggle.addEventListener('click', togglePlay);
+  el.mute.addEventListener('click', toggleMute);
+  el.radio.addEventListener('click', () => tuneIn());
+  el.volume.addEventListener('input', () => {
+    audio.volume = Number(el.volume.value);
+    prefs.volume = audio.volume;
+    savePrefs();
+  });
+  el.bar.addEventListener('click', (event) => {
+    if (mode !== 'mix' || !audio.duration) return;
+    const rect = el.bar.getBoundingClientRect();
+    audio.currentTime = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)) * audio.duration;
+  });
+
+  // Raccourcis : espace = pause/lecture, M = muet (hors champs de saisie et hors sas d'entrée).
+  document.addEventListener('keydown', (event) => {
+    if (document.body.hasAttribute('data-entry')) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, button, a, [contenteditable]')) return;
+    if (event.key === ' ') {
+      event.preventDefault();
+      togglePlay();
+    } else if (event.key.toLowerCase() === 'm') {
+      toggleMute();
+    }
+  });
+
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', togglePlay);
+    navigator.mediaSession.setActionHandler('pause', togglePlay);
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (mode === 'mix' && details.seekTime !== undefined) audio.currentTime = details.seekTime;
+    });
+  }
+
+  // ── API pour les pages ──────────────────────────────────────────────────────
+  (window as any).bfPlayer = {
+    start,
+    playMix,
+    tuneIn,
+    togglePlay,
+    toggleMute,
+    hasAudio: (slug: string) => bySlug.has(slug),
+    state: () => ({ mode, slug: mode === 'mix' ? current?.slug ?? null : null, playing: !audio.paused && !blocked, muted: audio.muted }),
+  };
+
+  render();
+  syncClock().then(() => {
+    // Première visite sur une page autre que le sas d'entrée : on tente la radio directement.
+    // Si le navigateur refuse (pas de geste), le bouton TUNE IN reste en attente.
+    if (tracks.length && !prefs.radioOff && !document.body.hasAttribute('data-entry') && audio.paused) tuneIn();
+  });
+  window.setInterval(syncClock, 10 * 60 * 1000);
+</script>
+
+<style>
+  .bf-player {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    min-height: 52px;
+    padding: 0.5rem max(1rem, calc((100vw - 940px) / 2));
+    border-top: 1px solid var(--wano-green-border);
+    background: var(--wano-black);
+    color: var(--wano-white);
+    font-size: 0.75rem;
+  }
+
+  .bf-player[data-state='playing'] { border-top-color: var(--wano-green); }
+  .bf-player[data-state='empty'] { display: none; }
+  :global(body[data-entry]) .bf-player { display: none; }
+
+  .bp-status { display: flex; flex: 0 0 auto; align-items: center; gap: 0.5rem; letter-spacing: var(--tracking-wider); }
+  .bp-mode { color: var(--wano-green); }
+
+  .bp-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--wano-grey-400);
+  }
+
+  .bf-player[data-state='playing'] .bp-dot { background: var(--wano-green); animation: bp-pulse 1.6s ease-in-out infinite; }
+  .bf-player[data-state='blocked'] .bp-dot { background: var(--bf-turquoise); animation: bp-pulse 1s ease-in-out infinite; }
+
+  @keyframes bp-pulse {
+    50% { opacity: 0.25; }
+  }
+
+  .bp-info { display: grid; flex: 0 1 260px; min-width: 0; gap: 0.15rem; }
+  .bp-title, .bp-meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .bp-title { color: var(--wano-green); font-size: 0.85rem; }
+  .bp-meta { opacity: 0.5; }
+
+  .bp-progress { display: flex; flex: 1; align-items: center; gap: 0.8rem; min-width: 0; }
+  .bp-time { flex: 0 0 auto; opacity: 0.6; white-space: nowrap; }
+
+  .bp-bar {
+    flex: 1;
+    height: 3px;
+    padding: 0;
+    border: 0;
+    background: var(--wano-grey-700);
+    cursor: default;
+    text-align: left;
+  }
+
+  .bf-player[data-mode='mix'] .bp-bar { cursor: pointer; height: 5px; }
+  .bp-bar span { display: block; width: 0%; height: 100%; background: var(--wano-green); }
+
+  .bp-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 0.6rem; }
+
+  .bp-controls button {
+    min-width: 5.2rem;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--wano-green-border);
+    background: transparent;
+    color: var(--wano-green);
+    font: inherit;
+    letter-spacing: var(--tracking-wide, 0.05em);
+    cursor: pointer;
+  }
+
+  .bp-controls button:hover,
+  .bp-controls button:focus-visible {
+    border-color: var(--wano-green);
+    background: var(--wano-green);
+    color: var(--wano-black);
+    outline: none;
+  }
+
+  .bp-controls button[hidden] { display: none; }
+  .bf-player[data-state='blocked'] #bp-toggle { border-color: var(--wano-green); animation: bp-pulse 1s ease-in-out infinite; }
+  .bp-volume { display: flex; align-items: center; gap: 0.5rem; opacity: 0.6; }
+  .bp-volume input { width: 70px; }
+
+  @media (max-width: 800px) {
+    .bf-player { flex-wrap: wrap; gap: 0.5rem 0.8rem; padding: 0.5rem 1rem; }
+    .bp-info { flex: 1 1 0; }
+    .bp-volume { display: none; }
+    .bp-progress { order: 3; flex: 1 0 100%; }
+  }
+
+  @media (max-width: 520px) {
+    .bp-controls button { min-width: 0; padding: 0.35rem 0.5rem; }
+  }
+</style>
