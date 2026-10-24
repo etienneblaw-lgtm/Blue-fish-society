@@ -1,3 +1,5 @@
+import type { LabRecipe } from '@/lab/recipe';
+
 export type TrackType = 'release' | 'live' | 'unreleased' | 'mix';
 
 export interface Track {
@@ -13,9 +15,12 @@ export interface Track {
   /** Durée exacte en secondes (mesurée par le script prepare_mix). Obligatoire pour entrer dans la radio. */
   durationSec?: number;
   duration: string;
+  /** Description du mix. Paragraphes séparés par une ligne vide. */
   desc: string;
   manifesto: string;
   asciiSeed: string;
+  /** Recette du laboratoire (COPY CONFIG). Si présente, la page du mix affiche l'œuvre générative. */
+  lab?: LabRecipe;
 }
 
 export const tracks: Track[] = [
@@ -61,6 +66,7 @@ export const tracks: Track[] = [
     manifesto: 'La nuit comme interface. Le mix comme passage.',
     asciiSeed: 'nocturne',
   },
+  // ── Nouveaux mixes : ajoutés ici par Script/bluefish_add_mix.mjs ──
 ];
 
 export const filters = [

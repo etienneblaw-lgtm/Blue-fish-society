@@ -43,7 +43,8 @@ import { filters, tracks } from '@/data/tracks';
       const searchInput = document.getElementById('search-input') as HTMLInputElement;
       const filters = document.getElementById('filters')!;
       const empty = document.getElementById('empty-state')!;
-      const player = (window as any).bfPlayer;
+      // Lu au moment du clic : au chargement direct, le lecteur peut s'initialiser après la page.
+      const player = () => (window as any).bfPlayer;
       let currentFilter = 'all';
 
       // Les boutons lecture pilotent le lecteur unique du site (mode MIX).
@@ -76,7 +77,7 @@ import { filters, tracks } from '@/data/tracks';
         card.querySelector('[data-play-button]')?.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
-          player?.playMix(card.dataset.trackSlug);
+          player()?.playMix(card.dataset.trackSlug);
         });
       });
 
@@ -91,8 +92,8 @@ import { filters, tracks } from '@/data/tracks';
       searchInput.addEventListener('input', applyFilters);
 
       document.addEventListener('bf:player-state', (event) => refreshCards((event as CustomEvent).detail), { signal });
-      if (player) {
-        const { mode, slug, playing } = player.state();
+      if (player()) {
+        const { mode, slug, playing } = player().state();
         refreshCards({ slug: mode === 'mix' ? slug : null, state: playing ? 'playing' : 'paused' });
       }
 

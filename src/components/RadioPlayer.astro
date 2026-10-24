@@ -332,7 +332,8 @@ const playable = tracks
   syncClock().then(() => {
     // Première visite sur une page autre que le sas d'entrée : on tente la radio directement.
     // Si le navigateur refuse (pas de geste), le bouton TUNE IN reste en attente.
-    if (tracks.length && !prefs.radioOff && !document.body.hasAttribute('data-entry') && audio.paused) tuneIn();
+    // Rien ne démarre si la personne a déjà lancé quelque chose pendant la synchro (ex. un mix).
+    if (tracks.length && !prefs.radioOff && !document.body.hasAttribute('data-entry') && audio.paused && !current) tuneIn();
   });
   window.setInterval(syncClock, 10 * 60 * 1000);
 </script>

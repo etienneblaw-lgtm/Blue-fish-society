@@ -10,12 +10,22 @@ Doc complète (décisions, raisons, limites) : `Second Cerveau/2 - Projets/Blue 
 
 ## Ajouter un mix
 
-1. `node Script/prepare_mix.mjs "<chemin du WAV>" <slug>` depuis la racine du workspace.
-2. Envoyer `Script/output/audio/<slug>.mp3` à la racine du bucket R2.
-3. Ajouter l'entrée dans `src/data/tracks.ts` avec `src`, `durationSec` et `duration` affichés par le script.
-4. `npm run build`, commit, push sur `main`. Cloudflare Pages redéploie.
+Passer par le skill `fish-bluefish-add-mix` (« publie le mix de [artiste] »). Il s'appuie sur :
+
+```bash
+node Script/bluefish_add_mix.mjs --input <fichier.json>
+```
+
+Le script valide l'entrée, convertit en MP3 320 (MP3 fourni gardé tel quel), mesure la durée, envoie sur R2 (`wano/mixes/<slug>.mp3`, wrangler déjà connecté), ajoute l'entrée dans `src/data/tracks.ts` avec la recette du labo, puis construit le site. Reste : commit de `tracks.ts` et push.
 
 Un mix sans `src` ou sans `durationSec` s'affiche dans l'archive mais ne passe pas à la radio.
+
+## Page de mix et labo
+
+- `track.lab` = recette du labo (COPY CONFIG ou lien COPY LINK décodé). Si présente, `/mixes/<slug>` affiche l'œuvre en plein écran, sinon l'art ASCII.
+- `src/lab/engines/<id>.js` et `src/lab/shared.js` sont générés depuis `bluefish-experience-lab/app.js` par `node Script/bluefish_sync_lab_engines.mjs`. Ne pas les modifier à la main : modifier le labo, puis relancer.
+- `src/lab/runtime.ts` monte la recette : seul l'engine de la recette est chargé. Même recette = même œuvre de départ.
+- L'œuvre réagit au lecteur du site (lecture, pause) et à la souris hors des zones d'interface.
 
 ## Règles à respecter
 

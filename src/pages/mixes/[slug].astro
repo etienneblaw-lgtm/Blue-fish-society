@@ -1,4 +1,7 @@
 ---
+// Page d'un mix. Deux rendus :
+// - avec une recette du labo (track.lab) : l'œuvre générative occupe tout l'écran, les infos flottent dessus ;
+// - sans recette : l'art ASCII déterministe historique.
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SiteHeader from '@/components/SiteHeader.astro';
 import BrandFish from '@/components/BrandFish.astro';
@@ -10,37 +13,54 @@ export function getStaticPaths() {
 }
 
 const { track } = Astro.props;
-const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
+const hasLab = Boolean(track.lab);
+const art = hasLab ? '' : genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
+const paragraphs = track.desc.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+const playable = Boolean(track.src && track.durationSec);
 ---
 
-<BaseLayout title={`Bluefish Society — ${track.title}`} description={track.desc}>
+<BaseLayout title={`Bluefish Society — ${track.title}`} description={paragraphs[0] ?? track.title}>
   <SiteHeader active="tracks" />
-  <main class="mix-page wano-scroll">
-    <section class="mix-shell">
-      <div class="mix-meta">
+
+  {hasLab && (
+    <div class="lab-stage" id="lab-stage" data-recipe={JSON.stringify(track.lab)} data-title={track.title} aria-hidden="true">
+      <div class="lab-layer"></div>
+      <canvas class="lab-canvas"></canvas>
+      <div class="lab-cursor"></div>
+    </div>
+  )}
+
+  <main class:list={['mix-page', 'wano-scroll', hasLab && 'has-lab']}>
+    <section class:list={['mix-shell', hasLab && 'is-floating']}>
+      <div class="mix-meta ui">
         <a href="/tracks">← TRACK ARCHIVE</a>
-        <p class="eyebrow">TRANSMISSION {track.id}</p>
+        <p class="eyebrow">TRANSMISSION {track.id.toUpperCase()}</p>
         <h1>{track.title}</h1>
-        <p class="artist">{track.artist} · {track.year} · {track.type} · {track.duration}</p>
-        <p class="manifesto">{track.manifesto}</p>
+        <p class="artist">{track.artist} · {track.year} · {track.duration}</p>
+        <div class="desc">{paragraphs.map((p) => <p>{p}</p>)}</div>
+        {track.manifesto && <p class="manifesto">{track.manifesto}</p>}
         <div class="tags">{track.tags.map((tag) => <span>{tag}</span>)}</div>
-        {track.src && track.durationSec
+        {playable
           ? <button class="mix-play" id="mix-play" type="button" data-slug={track.slug}>▶ PLAY THIS MIX</button>
           : <div class="no-source">⊘ SOURCE AUDIO EN ATTENTE</div>}
       </div>
-      <div class="artwork" aria-label="Oeuvre ASCII du mix">
-        <pre>{art}</pre>
-        <BrandFish class="mix-fish" />
-      </div>
+      {!hasLab && (
+        <div class="artwork" aria-label="Oeuvre ASCII du mix">
+          <pre>{art}</pre>
+          <BrandFish class="mix-fish" />
+        </div>
+      )}
     </section>
   </main>
 
   <script>
     import { onPage } from '@/lib/page';
 
+    // Bouton lecture : pilote le lecteur unique du site (mode MIX).
     onPage('#mix-play', (button, { signal }) => {
       const slug = button.dataset.slug!;
-      const player = (window as any).bfPlayer;
+      // Lu au moment du clic : au chargement direct, le lecteur peut s'initialiser après la page.
+      const player = () => (window as any).bfPlayer;
 
       function refresh(detail: { slug: string | null; state: string }) {
         const isThisMix = detail.slug === slug;
@@ -49,11 +69,23 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
         button.classList.toggle('active', isPlaying);
       }
 
-      button.addEventListener('click', () => player?.playMix(slug));
+      button.addEventListener('click', () => player()?.playMix(slug));
       document.addEventListener('bf:player-state', (event) => refresh((event as CustomEvent).detail), { signal });
-      if (player) {
-        const { mode, slug: playingSlug, playing } = player.state();
+      if (player()) {
+        const { mode, slug: playingSlug, playing } = player().state();
         refresh({ slug: mode === 'mix' ? playingSlug : null, state: playing ? 'playing' : 'paused' });
+      }
+    });
+
+    // Œuvre du labo : seul l'engine de la recette est chargé.
+    onPage('#lab-stage', async (stage, { signal }) => {
+      const { mountRecipe } = await import('@/lab/runtime');
+      const audio = document.getElementById('bf-audio') as HTMLAudioElement;
+      try {
+        await mountRecipe(stage, JSON.parse(stage.dataset.recipe!), { audio, title: stage.dataset.title || '', signal });
+      } catch (error) {
+        console.error('[bluefish lab] œuvre indisponible', error);
+        stage.classList.add('is-broken');
       }
     });
   </script>
@@ -104,9 +136,20 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
     font-size: var(--text-sm);
   }
 
-  .manifesto {
-    margin: 2rem 0;
+  .desc {
+    margin: 1.5rem 0;
     color: var(--wano-white);
+    line-height: var(--leading-relaxed);
+  }
+
+  .desc p {
+    margin: 0 0 0.9rem;
+  }
+
+  .manifesto {
+    margin: 0 0 1.5rem;
+    color: var(--wano-grey-300);
+    font-style: italic;
     line-height: var(--leading-relaxed);
   }
 
@@ -179,9 +222,100 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
     opacity: 0.24;
   }
 
+  /* ── Œuvre du labo en plein écran ─────────────────────────────────────── */
+  .lab-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: var(--wano-black);
+  }
+
+  .lab-stage .lab-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+  }
+
+  .lab-stage .lab-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .lab-stage .lab-layer:has(*) {
+    pointer-events: auto;
+  }
+
+  .lab-cursor {
+    position: fixed;
+    top: -24px;
+    left: -24px;
+    z-index: 20;
+    width: 48px;
+    height: 48px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 80ms linear;
+  }
+
+  .lab-cursor :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 0 4px currentColor);
+    transition: transform 90ms linear;
+  }
+
+  .lab-cursor:global(.visible) { opacity: 0.78; }
+  .lab-cursor:global(.active) :global(svg) { transform: scale(1.28) rotate(12deg); }
+  .lab-stage:global(.hide-cursor) .lab-cursor { display: none; }
+  .lab-stage:global(.is-broken) { display: none; }
+
+  @media (pointer: fine) {
+    .lab-stage:not(:global(.over-ui)) .lab-canvas,
+    .lab-stage:not(:global(.over-ui)) .lab-layer { cursor: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lab-cursor { display: none; }
+  }
+
+  /* Le contenu laisse passer la souris vers l'œuvre, sauf la fiche du mix. */
+  .mix-page.has-lab {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .mix-shell.is-floating {
+    display: block;
+    max-width: none;
+  }
+
+  .is-floating .mix-meta {
+    width: min(100%, 420px);
+    max-height: calc(100vh - 73px - 7rem);
+    overflow-y: auto;
+    border-color: var(--wano-green-border);
+    background: rgba(0, 0, 0, 0.82);
+    pointer-events: auto;
+    backdrop-filter: blur(2px);
+    scrollbar-width: thin;
+    scrollbar-color: var(--wano-green-border) transparent;
+  }
+
+  .is-floating h1 {
+    font-size: clamp(2rem, 5vw, 3.6rem);
+  }
+
   @media (max-width: 900px) {
     .mix-page { padding: 1rem; }
     .mix-shell { grid-template-columns: 1fr; }
     .artwork { min-height: auto; overflow-x: auto; }
+    .is-floating .mix-meta { max-height: none; }
   }
 </style>
