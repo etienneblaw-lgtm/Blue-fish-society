@@ -23,6 +23,19 @@ const playable = tracks
   <audio id="bf-audio" preload="none"></audio>
   <script is:inline type="application/json" id="bf-radio-data" set:html={JSON.stringify(playable)} />
 
+  <button class="bp-bar" id="bp-bar" type="button" tabindex="-1" aria-label="Changer la progression">
+    <span class="bp-track" aria-hidden="true"><span id="bp-fill"></span></span>
+    <span class="bp-boat" id="bp-boat" aria-hidden="true">
+      <svg viewBox="0 0 18 11" shape-rendering="crispEdges" focusable="false">
+        <rect x="10" y="0" width="2" height="1"></rect>
+        <rect x="8" y="1" width="2" height="4"></rect>
+        <rect x="6" y="5" width="6" height="2"></rect>
+        <rect x="3" y="7" width="12" height="2"></rect>
+        <rect x="5" y="9" width="8" height="1"></rect>
+      </svg>
+    </span>
+  </button>
+
   <div class="bp-status">
     <span class="bp-dot" aria-hidden="true"></span>
     <span class="bp-mode" id="bp-mode">ON AIR</span>
@@ -35,7 +48,6 @@ const playable = tracks
 
   <div class="bp-progress">
     <span class="bp-time" id="bp-time">0:00 / 0:00</span>
-    <button class="bp-bar" id="bp-bar" type="button" tabindex="-1" aria-label="Changer la progression"><span id="bp-fill"></span></button>
   </div>
 
   <div class="bp-controls">
@@ -71,6 +83,7 @@ const playable = tracks
     time: document.getElementById('bp-time')!,
     bar: document.getElementById('bp-bar') as HTMLButtonElement,
     fill: document.getElementById('bp-fill')!,
+    boat: document.getElementById('bp-boat')!,
     toggle: document.getElementById('bp-toggle') as HTMLButtonElement,
     mute: document.getElementById('bp-mute') as HTMLButtonElement,
     volume: document.getElementById('bp-volume') as HTMLInputElement,
@@ -177,6 +190,28 @@ const playable = tracks
     return true;
   }
 
+  /**
+   * Page d'un mix : le player devient celui de ce mix, chargé au début et en pause.
+   * Le bouton PLAY en bas lance la lecture ; la barre et le bateau permettent de naviguer.
+   * Si ce mix est déjà chargé, on ne touche à rien (lecture en cours conservée).
+   */
+  function openMix(slug: string) {
+    const track = bySlug.get(slug);
+    if (!track) return false;
+    if (mode === 'mix' && current?.slug === slug) return true;
+    mode = 'mix';
+    current = track;
+    blocked = false;
+    audio.pause();
+    if (!sameSource(track)) {
+      audio.src = track.src;
+      audio.load();
+    }
+    audio.currentTime = 0;
+    render();
+    return true;
+  }
+
   function togglePlay() {
     if (!current && !tracks.length) return;
     if (blocked || audio.paused) {
@@ -230,10 +265,16 @@ const playable = tracks
   }
 
   function renderProgress() {
-    if (!current) return;
+    if (!current) {
+      el.boat.classList.remove('is-visible');
+      return;
+    }
     const total = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : current.durationSec;
     const position = Math.min(audio.currentTime, total);
-    el.fill.style.width = `${(position / total) * 100}%`;
+    const ratio = total > 0 ? Math.min(1, Math.max(0, position / total)) : 0;
+    el.fill.style.width = `${ratio * 100}%`;
+    el.bar.style.setProperty('--p', String(ratio));
+    el.boat.classList.add('is-visible');
     el.time.textContent = `${formatClock(position)} / ${formatClock(total)}`;
   }
 
@@ -321,6 +362,7 @@ const playable = tracks
   (window as any).bfPlayer = {
     start,
     playMix,
+    openMix,
     tuneIn,
     togglePlay,
     toggleMute,
@@ -382,21 +424,69 @@ const playable = tracks
   .bp-title { color: var(--wano-green); font-size: 0.85rem; }
   .bp-meta { opacity: 0.5; }
 
-  .bp-progress { display: flex; flex: 1; align-items: center; gap: 0.8rem; min-width: 0; }
+  .bp-progress { display: flex; flex: 1; align-items: center; justify-content: flex-end; min-width: 0; }
   .bp-time { flex: 0 0 auto; opacity: 0.6; white-space: nowrap; }
 
   .bp-bar {
-    flex: 1;
-    height: 3px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    width: 100%;
+    height: 22px;
     padding: 0;
     border: 0;
-    background: var(--wano-grey-700);
+    background: transparent;
     cursor: default;
+    transform: translateY(-50%);
     text-align: left;
   }
 
-  .bf-player[data-mode='mix'] .bp-bar { cursor: pointer; height: 5px; }
-  .bp-bar span { display: block; width: 0%; height: 100%; background: var(--wano-green); }
+  .bp-track {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 1px;
+    transform: translateY(-50%);
+    background: var(--wano-grey-700);
+  }
+
+  .bp-track span {
+    display: block;
+    width: 0%;
+    height: 100%;
+    background: var(--wano-green);
+  }
+
+  .bp-boat {
+    position: absolute;
+    top: 50%;
+    left: calc(11px + var(--p, 0) * (100% - 22px));
+    width: 22px;
+    height: 13px;
+    margin-left: -11px;
+    transform: translateY(-100%);
+    color: var(--wano-green);
+    opacity: 0;
+    pointer-events: none;
+    line-height: 0;
+    transition: opacity 200ms linear;
+  }
+
+  .bp-boat.is-visible { opacity: 1; }
+
+  .bp-boat svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    filter: drop-shadow(0 0 3px rgba(31, 243, 224, 0.45));
+  }
+
+  .bf-player[data-mode='mix'] .bp-bar { cursor: pointer; }
+  .bf-player[data-mode='mix'] .bp-bar:hover .bp-track { background: var(--wano-green-border); }
 
   .bp-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 0.6rem; }
 
@@ -428,7 +518,7 @@ const playable = tracks
     .bf-player { flex-wrap: wrap; gap: 0.5rem 0.8rem; padding: 0.5rem 1rem; }
     .bp-info { flex: 1 1 0; }
     .bp-volume { display: none; }
-    .bp-progress { order: 3; flex: 1 0 100%; }
+    .bp-progress { order: 3; flex: 1 0 100%; justify-content: flex-start; }
   }
 
   @media (max-width: 520px) {

@@ -3,7 +3,7 @@
 // mais ne charge que l'engine de la recette.
 // @ts-nocheck : les engines générés sont en JavaScript sans types.
 
-import { palettes, seededRandom, clamp, mixColor, hexToRgb, formatTime, paletteTone, cursorMarkup, setTrackName } from './shared.js';
+import { palettes, seededRandom, clamp, mixColor, hexToRgb, formatTime, paletteTone, setTrackName } from './shared.js';
 import type { LabRecipe } from './recipe';
 
 const loaders = import.meta.glob('./engines/*.js');
@@ -56,7 +56,7 @@ interface MountOptions {
 }
 
 /**
- * Monte l'œuvre dans `root` (qui contient canvas.lab-canvas, .lab-layer, .lab-cursor).
+ * Monte l'œuvre dans `root` (qui contient canvas.lab-canvas et .lab-layer).
  * Tout est démonté quand `signal` est annulé (changement de page).
  */
 export async function mountRecipe(root: HTMLElement, recipe: LabRecipe, { audio, title, signal }: MountOptions) {
@@ -68,7 +68,6 @@ export async function mountRecipe(root: HTMLElement, recipe: LabRecipe, { audio,
   setTrackName(title);
   const canvas = root.querySelector<HTMLCanvasElement>('.lab-canvas')!;
   const layer = root.querySelector<HTMLElement>('.lab-layer')!;
-  const cursor = root.querySelector<HTMLElement>('.lab-cursor')!;
   const context = canvas.getContext('2d')!;
   const state = recipeToState(recipe);
   const palette = resolvePalette(state);
@@ -95,9 +94,6 @@ export async function mountRecipe(root: HTMLElement, recipe: LabRecipe, { audio,
     c.hideCursor = false;
     engine.mount(c);
     mounted = true;
-    root.classList.toggle('hide-cursor', Boolean(c.hideCursor));
-    cursor.innerHTML = cursorMarkup(state.engine);
-    cursor.style.color = palette.primary;
     if (!audio.paused) engine.play(c);
   }
 
@@ -144,27 +140,20 @@ export async function mountRecipe(root: HTMLElement, recipe: LabRecipe, { audio,
     pointer.x = event.clientX;
     pointer.y = event.clientY;
     if (pointer.active) {
-      cursor.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
-      cursor.classList.add('visible');
       engine.pointerMove(buildCtx(), event.clientX, event.clientY, pointer.speed);
-    } else {
-      cursor.classList.remove('visible');
     }
   });
   on(document, 'pointerdown', (event: PointerEvent) => {
     if (isUi(event.target)) return;
     pointer.down = true;
-    cursor.classList.add('active');
     engine.pointerDown(buildCtx(), event.clientX, event.clientY);
   });
   on(window, 'pointerup', () => {
     pointer.down = false;
-    cursor.classList.remove('active');
     engine.pointerUp(buildCtx());
   });
   on(document, 'pointerleave', () => {
     pointer.active = false;
-    cursor.classList.remove('visible');
   });
   on(window, 'resize', resize);
   on(audio, 'play', () => engine.play(buildCtx()));

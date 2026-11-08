@@ -26,32 +26,38 @@ const playable = Boolean(track.src && track.durationSec);
     <div class="lab-stage" id="lab-stage" data-recipe={JSON.stringify(track.lab)} data-title={track.title} aria-hidden="true">
       <div class="lab-layer"></div>
       <canvas class="lab-canvas"></canvas>
-      <div class="lab-cursor"></div>
     </div>
   )}
 
-  <main class:list={['mix-page', 'wano-scroll', hasLab && 'has-lab']}>
-    <section class:list={['mix-shell', hasLab && 'is-floating']}>
-      <div class="mix-meta ui">
-        <a href="/tracks">← TRACK ARCHIVE</a>
-        <p class="eyebrow">TRANSMISSION {track.id.toUpperCase()}</p>
-        <h1>{track.title}</h1>
-        <p class="artist">{track.artist} · {track.year} · {track.duration}</p>
-        <div class="desc">{paragraphs.map((p) => <p>{p}</p>)}</div>
-        {track.manifesto && <p class="manifesto">{track.manifesto}</p>}
-        <div class="tags">{track.tags.map((tag) => <span>{tag}</span>)}</div>
-        {playable
-          ? <button class="mix-play" id="mix-play" type="button" data-slug={track.slug}>▶ PLAY THIS MIX</button>
-          : <div class="no-source">⊘ SOURCE AUDIO EN ATTENTE</div>}
-      </div>
-      {!hasLab && (
+  {hasLab ? (
+    <div class="mix-caption" id="mix-caption" data-slug={track.slug}>
+      <p class="mix-desc">
+        <span class="sr-only">{track.desc}</span>
+        <span class="mix-desc-typed" id="mix-desc-typed" aria-hidden="true"></span><span class="mix-caret wano-cursor" aria-hidden="true"></span>
+      </p>
+    </div>
+  ) : (
+    <main class="mix-page wano-scroll">
+      <section class="mix-shell">
+        <div class="mix-meta ui">
+          <a href="/tracks">← TRACK ARCHIVE</a>
+          <p class="eyebrow">TRANSMISSION {track.id.toUpperCase()}</p>
+          <h1>{track.title}</h1>
+          <p class="artist">{track.artist} · {track.year} · {track.duration}</p>
+          <div class="desc">{paragraphs.map((p) => <p>{p}</p>)}</div>
+          {track.manifesto && <p class="manifesto">{track.manifesto}</p>}
+          <div class="tags">{track.tags.map((tag) => <span>{tag}</span>)}</div>
+          {playable
+            ? <button class="mix-play" id="mix-play" type="button" data-slug={track.slug}>▶ PLAY THIS MIX</button>
+            : <div class="no-source">⊘ SOURCE AUDIO EN ATTENTE</div>}
+        </div>
         <div class="artwork" aria-label="Oeuvre ASCII du mix">
           <pre>{art}</pre>
           <BrandFish class="mix-fish" />
         </div>
-      )}
-    </section>
-  </main>
+      </section>
+    </main>
+  )}
 
   <script>
     import { onPage } from '@/lib/page';
@@ -75,6 +81,82 @@ const playable = Boolean(track.src && track.durationSec);
         const { mode, slug: playingSlug, playing } = player().state();
         refresh({ slug: mode === 'mix' ? playingSlug : null, state: playing ? 'playing' : 'paused' });
       }
+    });
+
+    // Description : machine à écrire, puis effacement en typewriter inversé.
+    onPage('#mix-caption', (caption, { signal }) => {
+      // Le player du bas devient celui de ce mix (chargé au début, en pause).
+      const slug = caption.dataset.slug!;
+      const player = () => (window as any).bfPlayer;
+      let readyTimer = 0;
+      let tries = 0;
+      const prepare = () => {
+        const api = player();
+        if (api) {
+          api.openMix(slug);
+          return;
+        }
+        if (tries < 60) {
+          tries += 1;
+          readyTimer = window.setTimeout(prepare, 50);
+        }
+      };
+      prepare();
+
+      const typed = caption.querySelector<HTMLElement>('#mix-desc-typed');
+      const caret = caption.querySelector<HTMLElement>('.mix-caret');
+      if (!typed) return;
+      const text = (caption.querySelector('.sr-only')?.textContent || '').trim();
+      if (!text) {
+        caption.hidden = true;
+        return;
+      }
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        typed.textContent = text;
+        caret?.remove();
+        return;
+      }
+
+      const TYPE = 38;
+      const ERASE = 16;
+      const HOLD = 8000;
+      const PAUSE = 4000;
+      let timer = 0;
+      let index = 0;
+      let erasing = false;
+
+      const tick = () => {
+        if (signal.aborted) return;
+        if (erasing) {
+          index -= 1;
+          typed.textContent = text.slice(0, Math.max(0, index));
+          if (index <= 0) {
+            erasing = false;
+            timer = window.setTimeout(tick, PAUSE);
+            return;
+          }
+          timer = window.setTimeout(tick, ERASE);
+          return;
+        }
+        index += 1;
+        typed.textContent = text.slice(0, index);
+        if (index >= text.length) {
+          erasing = true;
+          timer = window.setTimeout(tick, HOLD);
+          return;
+        }
+        timer = window.setTimeout(tick, TYPE);
+      };
+
+      timer = window.setTimeout(tick, 700);
+      signal.addEventListener(
+        'abort',
+        () => {
+          window.clearTimeout(timer);
+          window.clearTimeout(readyTimer);
+        },
+        { once: true },
+      );
     });
 
     // Œuvre du labo : seul l'engine de la recette est chargé.
@@ -222,6 +304,51 @@ const playable = Boolean(track.src && track.durationSec);
     opacity: 0.24;
   }
 
+  /* ── Description au centre de l'œuvre ─────────────────────────────────── */
+  .mix-caption {
+    position: fixed;
+    inset: 73px 0 52px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    pointer-events: none;
+  }
+
+  .mix-desc {
+    max-width: 46ch;
+    margin: 0;
+    color: var(--wano-white);
+    font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+    line-height: 1.8;
+    text-align: center;
+    white-space: pre-line;
+    opacity: 0.82;
+    text-shadow: 0 0 18px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
+  }
+
+  .mix-caret {
+    margin-left: 1px;
+    color: var(--wano-green);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 700px) {
+    .mix-caption { inset: 65px 0 96px; }
+  }
+
   /* ── Œuvre du labo en plein écran ─────────────────────────────────────── */
   .lab-stage {
     position: fixed;
@@ -250,39 +377,7 @@ const playable = Boolean(track.src && track.durationSec);
     pointer-events: auto;
   }
 
-  .lab-cursor {
-    position: fixed;
-    top: -24px;
-    left: -24px;
-    z-index: 20;
-    width: 48px;
-    height: 48px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 80ms linear;
-  }
-
-  .lab-cursor :global(svg) {
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-    filter: drop-shadow(0 0 4px currentColor);
-    transition: transform 90ms linear;
-  }
-
-  .lab-cursor:global(.visible) { opacity: 0.78; }
-  .lab-cursor:global(.active) :global(svg) { transform: scale(1.28) rotate(12deg); }
-  .lab-stage:global(.hide-cursor) .lab-cursor { display: none; }
   .lab-stage:global(.is-broken) { display: none; }
-
-  @media (pointer: fine) {
-    .lab-stage:not(:global(.over-ui)) .lab-canvas,
-    .lab-stage:not(:global(.over-ui)) .lab-layer { cursor: none; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lab-cursor { display: none; }
-  }
 
   /* Le contenu laisse passer la souris vers l'œuvre, sauf la fiche du mix. */
   .mix-page.has-lab {
