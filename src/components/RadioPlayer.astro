@@ -367,7 +367,17 @@ const playable = tracks
     togglePlay,
     toggleMute,
     hasAudio: (slug: string) => bySlug.has(slug),
-    state: () => ({ mode, slug: mode === 'mix' ? current?.slug ?? null : null, playing: !audio.paused && !blocked, muted: audio.muted }),
+    state: () => ({
+      mode,
+      slug: current?.slug ?? null,
+      playing: !audio.paused && !blocked,
+      muted: audio.muted,
+      title: current?.title ?? null,
+      artist: current?.artist ?? null,
+      year: current?.year ?? null,
+      durationSec: current?.durationSec ?? null,
+      position: Number.isFinite(audio.currentTime) ? audio.currentTime : 0,
+    }),
   };
 
   render();

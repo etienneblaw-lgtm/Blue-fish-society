@@ -49,9 +49,14 @@ import BrandFish from '@/components/BrandFish.astro';
           </a>
         </div>
 
-        <!-- Future: random archived mix/player presentation lives here. -->
         <section class="terminal-frame labelled-frame now-playing-box" aria-label="Now playing">
           <h2 class="frame-label">NOW PLAYING</h2>
+          <div class="system-rows">
+            <div class="system-row"><span>TRANSMISSION</span><span class="system-dots" aria-hidden="true">................................................................................................</span><a class="np-title highlight" id="np-title" href="/tracks">—</a></div>
+            <div class="system-row"><span>ARTIST</span><span class="system-dots" aria-hidden="true">................................................................................................</span><span id="np-artist">—</span></div>
+            <div class="system-row"><span>STATE</span><span class="system-dots" aria-hidden="true">................................................................................................</span><span id="np-state" class="highlight">—</span></div>
+            <div class="system-row"><span>POSITION</span><span class="system-dots" aria-hidden="true">................................................................................................</span><span id="np-time">—</span></div>
+          </div>
         </section>
 
         <pre class="terminal-box command-line">root@bluefish:~$ <span class="cursor-block wano-cursor"></span></pre>
@@ -86,6 +91,46 @@ import BrandFish from '@/components/BrandFish.astro';
     updateClock();
     const clock = window.setInterval(updateClock, 1000);
     signal.addEventListener('abort', () => window.clearInterval(clock));
+    });
+
+    // NOW PLAYING : reflète le son réellement joué par le lecteur du bas.
+    onPage('#np-title', (_root, { signal }) => {
+      const title = document.getElementById('np-title')!;
+      const artist = document.getElementById('np-artist')!;
+      const stateEl = document.getElementById('np-state')!;
+      const timeEl = document.getElementById('np-time')!;
+
+      const clock = (total: number) => {
+        const t = Math.max(0, Math.round(total));
+        const h = Math.floor(t / 3600);
+        const m = Math.floor((t % 3600) / 60);
+        const s = String(t % 60).padStart(2, '0');
+        return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+      };
+
+      const render = () => {
+        const player = (window as any).bfPlayer;
+        const current = player ? player.state() : null;
+        if (!current || !current.title) {
+          title.textContent = '—';
+          artist.textContent = '—';
+          stateEl.textContent = 'STANDBY';
+          timeEl.textContent = '—';
+          title.setAttribute('href', '/tracks');
+          return;
+        }
+        title.textContent = current.title.toUpperCase();
+        artist.textContent = `${current.artist} · ${current.year}`;
+        stateEl.textContent = `${current.mode === 'radio' ? 'ON AIR' : 'MIX'} · ${current.playing ? 'PLAYING' : 'PAUSED'}`;
+        const total = current.durationSec || 0;
+        timeEl.textContent = total ? `${clock(current.position)} / ${clock(total)}` : clock(current.position);
+        title.setAttribute('href', current.slug ? `/mixes/${current.slug}` : '/tracks');
+      };
+
+      render();
+      const timer = window.setInterval(render, 1000);
+      document.addEventListener('bf:player-state', render, { signal });
+      signal.addEventListener('abort', () => window.clearInterval(timer));
     });
   </script>
 </BaseLayout>
@@ -208,6 +253,17 @@ import BrandFish from '@/components/BrandFish.astro';
   .now-playing-box {
     min-height: 80px;
     margin-top: 0.8rem;
+  }
+
+  .np-title {
+    border-bottom: 0;
+  }
+
+  .np-title:hover,
+  .np-title:focus-visible {
+    background: var(--wano-green);
+    color: var(--wano-black);
+    outline: none;
   }
 
   .command-line {
