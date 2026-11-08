@@ -66,6 +66,22 @@ export const tracks: Track[] = [
     manifesto: 'La nuit comme interface. Le mix comme passage.',
     asciiSeed: 'nocturne',
   },
+  {
+    id: "bf-0004",
+    slug: "theo-leo",
+    title: "Théo Léo",
+    artist: "Théo Léo",
+    year: 2026,
+    type: "mix",
+    tags: ["mix"],
+    src: "https://audio.poisson.blue/mixes/theo-leo.mp3",
+    durationSec: 4914.88,
+    duration: "1:21:55",
+    desc: "Lorem Ipsum",
+    manifesto: '',
+    asciiSeed: "theo-leo",
+    lab: {"engine":"caustics","interaction":"attract","memory":"evaporate","palette":"iridescent","colors":{"seed":3471588312,"spread":1},"parameters":{"density":1,"speed":0.67,"chaos":1,"scale":0.31,"force":0.05,"persistence":0},"seed":4062327588},
+  },
   // ── Nouveaux mixes : ajoutés ici par Script/bluefish_add_mix.mjs ──
 ];
 
