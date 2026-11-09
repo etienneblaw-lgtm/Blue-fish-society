@@ -26,12 +26,11 @@ const playable = tracks
   <button class="bp-bar" id="bp-bar" type="button" tabindex="-1" aria-label="Changer la progression">
     <span class="bp-track" aria-hidden="true"><span id="bp-fill"></span></span>
     <span class="bp-boat" id="bp-boat" aria-hidden="true">
-      <svg viewBox="0 0 18 11" shape-rendering="crispEdges" focusable="false">
-        <rect x="10" y="0" width="2" height="1"></rect>
-        <rect x="8" y="1" width="2" height="4"></rect>
-        <rect x="6" y="5" width="6" height="2"></rect>
-        <rect x="3" y="7" width="12" height="2"></rect>
-        <rect x="5" y="9" width="8" height="1"></rect>
+      <svg viewBox="0 0 24 19" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="miter" stroke-linecap="square" focusable="false">
+        <rect x="0" y="0" width="24" height="19" fill="transparent" stroke="none" pointer-events="all"></rect>
+        <path d="M15 1 C 15 7 12 11 3 13 L15 13 Z"></path>
+        <line x1="15" y1="1" x2="15" y2="15"></line>
+        <path d="M3 14 L21 14 L18 18 L6 18 Z"></path>
       </svg>
     </span>
   </button>
@@ -198,17 +197,9 @@ const playable = tracks
   function openMix(slug: string) {
     const track = bySlug.get(slug);
     if (!track) return false;
-    if (mode === 'mix' && current?.slug === slug) return true;
+    if (mode === 'mix' && current?.slug === slug && !audio.paused) return true;
     mode = 'mix';
-    current = track;
-    blocked = false;
-    audio.pause();
-    if (!sameSource(track)) {
-      audio.src = track.src;
-      audio.load();
-    }
-    audio.currentTime = 0;
-    render();
+    loadAndPlay(track, 0); // démarre le mix automatiquement
     return true;
   }
 
@@ -250,7 +241,7 @@ const playable = tracks
     el.mode.textContent = mode === 'radio' ? 'ON AIR' : 'MIX';
     el.title.textContent = current ? current.title.toUpperCase() : 'BLUEFISH RADIO';
     el.meta.textContent = current ? `${current.artist} · ${current.year}` : 'Press play to tune in';
-    el.toggle.textContent = blocked || (audio.paused && !current) ? '▶ TUNE IN' : playing ? '⏸ PAUSE' : '▶ PLAY';
+    el.toggle.textContent = !current || (blocked && mode === 'radio') ? '▶ TUNE IN' : playing ? '⏸ PAUSE' : '▶ PLAY';
     el.mute.textContent = audio.muted ? 'UNMUTE' : 'MUTE';
     el.mute.setAttribute('aria-pressed', String(audio.muted));
     el.radio.hidden = mode !== 'mix';
@@ -330,11 +321,43 @@ const playable = tracks
     prefs.volume = audio.volume;
     savePrefs();
   });
-  el.bar.addEventListener('click', (event) => {
-    if (mode !== 'mix' || !audio.duration) return;
+  // Barre glissable : on attrape le bateau et on déplace la position du mix.
+  let dragging = false;
+
+  function seekFromClientX(clientX: number) {
+    if (mode !== 'mix' || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
     const rect = el.bar.getBoundingClientRect();
-    audio.currentTime = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)) * audio.duration;
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    audio.currentTime = ratio * audio.duration;
+    renderProgress();
+  }
+
+  el.bar.addEventListener('pointerdown', (event) => {
+    if (mode !== 'mix') return;
+    event.preventDefault();
+    dragging = true;
+    try {
+      el.bar.setPointerCapture(event.pointerId);
+    } catch {
+      // capture non disponible : le glissement reste possible dans la barre
+    }
+    seekFromClientX(event.clientX);
   });
+  el.bar.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    seekFromClientX(event.clientX);
+  });
+  const stopDrag = (event: PointerEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    try {
+      if (el.bar.hasPointerCapture(event.pointerId)) el.bar.releasePointerCapture(event.pointerId);
+    } catch {
+      // déjà relâché
+    }
+  };
+  el.bar.addEventListener('pointerup', stopDrag);
+  el.bar.addEventListener('pointercancel', stopDrag);
 
   // Raccourcis : espace = pause/lecture, M = muet (hors champs de saisie et hors sas d'entrée).
   document.addEventListener('keydown', (event) => {
@@ -448,7 +471,7 @@ const playable = tracks
     padding: 0;
     border: 0;
     background: transparent;
-    cursor: default;
+    cursor: url('/bluefish-cursor.cur'), default;
     transform: translateY(-50%);
     text-align: left;
   }
@@ -473,14 +496,13 @@ const playable = tracks
   .bp-boat {
     position: absolute;
     top: 50%;
-    left: calc(11px + var(--p, 0) * (100% - 22px));
-    width: 22px;
-    height: 13px;
-    margin-left: -11px;
+    left: calc(20px + var(--p, 0) * (100% - 40px));
+    width: 40px;
+    margin-left: -20px;
     transform: translateY(-100%);
     color: var(--wano-green);
     opacity: 0;
-    pointer-events: none;
+    pointer-events: auto;
     line-height: 0;
     transition: opacity 200ms linear;
   }
@@ -490,12 +512,11 @@ const playable = tracks
   .bp-boat svg {
     display: block;
     width: 100%;
-    height: 100%;
-    fill: currentColor;
-    filter: drop-shadow(0 0 3px rgba(31, 243, 224, 0.45));
+    height: auto;
+    filter: drop-shadow(0 0 4px rgba(31, 243, 224, 0.5));
   }
 
-  .bf-player[data-mode='mix'] .bp-bar { cursor: pointer; }
+  .bf-player[data-mode='mix'] .bp-bar { cursor: url('/bluefish-cursor.cur'), pointer; }
   .bf-player[data-mode='mix'] .bp-bar:hover .bp-track { background: var(--wano-green-border); }
 
   .bp-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 0.6rem; }
@@ -508,7 +529,7 @@ const playable = tracks
     color: var(--wano-green);
     font: inherit;
     letter-spacing: var(--tracking-wide, 0.05em);
-    cursor: pointer;
+    cursor: url('/bluefish-cursor.cur'), pointer;
   }
 
   .bp-controls button:hover,

@@ -203,7 +203,7 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
     border-radius: 0;
     background: var(--wano-black);
     color: var(--wano-green);
-    cursor: pointer;
+    cursor: url('/bluefish-cursor.cur'), pointer;
     font-size: var(--text-xs);
     transition: var(--transition-hover);
   }
@@ -216,7 +216,7 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
   }
 
   .play-btn:disabled {
-    cursor: not-allowed;
+    cursor: url('/bluefish-cursor.cur'), not-allowed;
     opacity: 0.3;
   }
 
