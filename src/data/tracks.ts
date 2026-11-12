@@ -93,7 +93,7 @@ export const tracks: Track[] = [
     src: "https://audio.poisson.blue/mixes/do-you-need-me-like-i-need-you.mp3",
     durationSec: 3662.89,
     duration: "1:01:03",
-    desc: "Ethereal transmission carefully crafted by Stach.\n\nA slow-burning journey guiding us through different layers of sounds, taking our hand from deep within into the clear blue sky.\n\nA message of hope.\n\nWe do need that.",
+    desc: "Ethereal transmission carefully crafted by Gardair.\n\nA slow-burning journey guiding us through different layers of sounds, taking our hand from deep within into the clear blue sky.\n\nA message of hope.\n\nWe do need that.",
     manifesto: '',
     asciiSeed: "do-you-need-me-like-i-need-you",
     lab: {"engine":"tesseract","interaction":"repel","memory":"heal","palette":"infrared","colors":{"seed":1753773648,"spread":0.68},"parameters":{"density":0.46,"speed":0.36,"chaos":0.85,"scale":1,"force":1,"persistence":0.18},"seed":2908339300},
