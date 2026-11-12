@@ -18,21 +18,28 @@ const art = hasLab ? '' : genTrackArt(`${track.id}-${track.asciiSeed}`, track.ty
 const paragraphs = track.desc.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 const playable = Boolean(track.src && track.durationSec);
 
-// Description sur l'œuvre : une phrase par bloc, posées en diagonale douce
-// (haut gauche vers bas droite) pour garder un sens de lecture naturel.
-// Le léger décalage vient du slug : stable d'une visite à l'autre.
+// Description sur l'œuvre : une phrase par bloc, lues en colonnes de deux.
+// Phrase 1 en haut à gauche, 2 en bas à gauche, 3 en haut à droite, 4 en bas à droite, etc.
+// Sur mobile : empilées. Le léger décalage vient du slug : stable d'une visite à l'autre.
 const lines = paragraphs.flatMap((p) => p.split(/(?<=[.!?…])\s+(?=\S)/)).map((l) => l.trim()).filter(Boolean);
 let seed = [...track.slug].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 const rand = () => {
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
   return seed / 2 ** 32;
 };
+const cols = Math.max(1, Math.ceil(lines.length / 2));
 const placed = lines.map((text, i) => {
-  const t = lines.length > 1 ? i / (lines.length - 1) : 0.5;
-  const x = 9 + t * 42 + (rand() - 0.5) * 8;
-  const dy = (rand() - 0.5) * 2.4; // en rem, petit flottement vertical
-  const xm = 6 + t * 12 + (rand() - 0.5) * 4;
-  return { text, style: `--x:${x.toFixed(1)}%;--dy:${dy.toFixed(2)}rem;--xm:${xm.toFixed(1)}%` };
+  const col = Math.floor(i / 2);
+  const bottom = i % 2 === 1;
+  const jx = (rand() - 0.5) * 6;
+  const jy = (rand() - 0.5) * 6;
+  const dy = (rand() - 0.5) * 2.4; // mobile : petit flottement vertical, en rem
+  const xm = 6 + (lines.length > 1 ? i / (lines.length - 1) : 0) * 12 + (rand() - 0.5) * 4;
+  // Dernière colonne calée sur le bord droit, les autres réparties depuis la gauche.
+  const lastCol = cols > 1 && col === cols - 1;
+  const hx = lastCol ? `right:${(7 + jx).toFixed(1)}%` : `left:${(7 + (col / Math.max(1, cols - 1)) * 50 + jx).toFixed(1)}%`;
+  const vy = bottom ? `bottom:${(12 + jy).toFixed(1)}%` : `top:${(10 + jy).toFixed(1)}%`;
+  return { text, style: `${hx};${vy};--dy:${dy.toFixed(2)}rem;--xm:${xm.toFixed(1)}%` };
 });
 ---
 
@@ -54,6 +61,9 @@ const placed = lines.map((text, i) => {
       ))}
       <span class="mix-caret wano-cursor" aria-hidden="true"></span>
     </div>
+    <button class="mix-gate" id="mix-gate" type="button" data-slug={track.slug} hidden aria-label="Lancer le mix">
+      <span class="mix-gate-hint wano-hint"><span class="gate-desk">▶ PRESS ENTER TO PLAY</span><span class="gate-touch">▶ TAP TO PLAY</span></span>
+    </button>
   ) : (
     <main class="mix-page wano-scroll">
       <section class="mix-shell">
@@ -197,6 +207,43 @@ const placed = lines.map((text, i) => {
         },
         { once: true },
       );
+    });
+
+    // Lancement auto : le mix démarre seul à l'arrivée. Si le navigateur bloque le son
+    // (page ouverte directement, sans clic avant), un sas transparent couvre la page :
+    // le premier clic, toucher ou Entrée lance le mix et le sas disparaît.
+    onPage('#mix-gate', (gate, { signal }) => {
+      const slug = gate.dataset.slug!;
+      const player = () => (window as any).bfPlayer;
+      const setOpen = (open: boolean) => {
+        gate.hidden = !open;
+      };
+      const go = () => {
+        player()?.resume();
+        setOpen(false);
+      };
+
+      document.addEventListener(
+        'bf:player-state',
+        (event) => {
+          const detail = (event as CustomEvent).detail;
+          if (detail.slug !== slug) return setOpen(false);
+          setOpen(detail.state === 'blocked');
+        },
+        { signal },
+      );
+      gate.addEventListener('click', go, { signal });
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (gate.hidden || event.key !== 'Enter') return;
+          event.preventDefault();
+          go();
+        },
+        { signal },
+      );
+      const s = player()?.state();
+      if (s?.blocked && s.slug === slug) setOpen(true);
     });
 
     // Œuvre du labo : seul l'engine de la recette est chargé.
@@ -349,23 +396,50 @@ const placed = lines.map((text, i) => {
     position: fixed;
     inset: 73px 0 52px;
     z-index: 3;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-evenly;
-    padding: 1.5rem 0;
     pointer-events: none;
   }
 
   .mix-line {
-    position: relative;
-    max-width: min(34ch, 44vw);
-    margin: 0 0 0 var(--x);
-    transform: translateY(var(--dy));
+    position: absolute;
+    max-width: min(34ch, 40vw);
+    margin: 0;
     color: var(--bf-turquoise);
     font-size: clamp(0.76rem, 1.05vw, 0.9rem);
     line-height: 1.7;
     text-align: left;
     text-shadow: 0 0 14px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
+  }
+
+  .mix-gate {
+    position: fixed;
+    inset: 73px 0 52px;
+    z-index: 4;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 0 2.2rem;
+    border: 0;
+    background: transparent;
+    color: var(--bf-turquoise);
+    font: inherit;
+    letter-spacing: var(--tracking-wider);
+    cursor: url('/bluefish-cursor.cur'), pointer;
+  }
+
+  .mix-gate[hidden] { display: none; }
+
+  .mix-gate-hint {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--bf-turquoise);
+    background: rgba(0, 0, 0, 0.7);
+    font-size: var(--text-sm);
+  }
+
+  .gate-touch { display: none; }
+
+  @media (hover: none) {
+    .gate-desk { display: none; }
+    .gate-touch { display: inline; }
   }
 
   /* La phrase complète, invisible, réserve sa place : rien ne bouge pendant la frappe. */
@@ -391,7 +465,19 @@ const placed = lines.map((text, i) => {
 
   @media (max-width: 700px) {
     .mix-caption { inset: 65px 0 96px; }
-    .mix-line { margin-left: var(--xm); max-width: 78vw; }
+    .mix-caption {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-evenly;
+      padding: 1.5rem 0;
+    }
+    .mix-line {
+      position: relative;
+      inset: auto !important;
+      max-width: 78vw;
+      margin-left: var(--xm);
+      transform: translateY(var(--dy));
+    }
   }
 
   /* ── Œuvre du labo en plein écran ─────────────────────────────────────── */
