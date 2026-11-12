@@ -359,6 +359,18 @@ const playable = tracks
   el.bar.addEventListener('pointerup', stopDrag);
   el.bar.addEventListener('pointercancel', stopDrag);
 
+  // Page d'un mix ouverte directement : le navigateur refuse le son sans geste.
+  // Le premier clic ou toucher sur la page lance alors le mix.
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (!blocked || mode !== 'mix' || !current) return;
+      if (root.contains(event.target as Node)) return; // les boutons du player gèrent eux-mêmes
+      audio.play().then(() => { blocked = false; render(); }).catch(() => undefined);
+    },
+    true,
+  );
+
   // Raccourcis : espace = pause/lecture, M = muet (hors champs de saisie et hors sas d'entrée).
   document.addEventListener('keydown', (event) => {
     if (document.body.hasAttribute('data-entry')) return;

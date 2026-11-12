@@ -17,6 +17,23 @@ const hasLab = Boolean(track.lab);
 const art = hasLab ? '' : genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 16, 54);
 const paragraphs = track.desc.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 const playable = Boolean(track.src && track.durationSec);
+
+// Description sur l'œuvre : une phrase par bloc, posées en diagonale douce
+// (haut gauche vers bas droite) pour garder un sens de lecture naturel.
+// Le léger décalage vient du slug : stable d'une visite à l'autre.
+const lines = paragraphs.flatMap((p) => p.split(/(?<=[.!?…])\s+(?=\S)/)).map((l) => l.trim()).filter(Boolean);
+let seed = [...track.slug].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
+const rand = () => {
+  seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+  return seed / 2 ** 32;
+};
+const placed = lines.map((text, i) => {
+  const t = lines.length > 1 ? i / (lines.length - 1) : 0.5;
+  const x = 9 + t * 42 + (rand() - 0.5) * 8;
+  const dy = (rand() - 0.5) * 2.4; // en rem, petit flottement vertical
+  const xm = 6 + t * 12 + (rand() - 0.5) * 4;
+  return { text, style: `--x:${x.toFixed(1)}%;--dy:${dy.toFixed(2)}rem;--xm:${xm.toFixed(1)}%` };
+});
 ---
 
 <BaseLayout title={`Bluefish Society — ${track.title}`} description={paragraphs[0] ?? track.title}>
@@ -31,10 +48,11 @@ const playable = Boolean(track.src && track.durationSec);
 
   {hasLab ? (
     <div class="mix-caption" id="mix-caption" data-slug={track.slug}>
-      <p class="mix-desc">
-        <span class="sr-only">{track.desc}</span>
-        <span class="mix-desc-typed" id="mix-desc-typed" aria-hidden="true"></span><span class="mix-caret wano-cursor" aria-hidden="true"></span>
-      </p>
+      <span class="sr-only">{track.desc}</span>
+      {placed.map((line) => (
+        <p class="mix-line" style={line.style} data-text={line.text} aria-hidden="true"><span class="mix-line-ghost">{line.text}</span><span class="mix-line-live"><span class="mix-line-typed"></span></span></p>
+      ))}
+      <span class="mix-caret wano-cursor" aria-hidden="true"></span>
     </div>
   ) : (
     <main class="mix-page wano-scroll">
@@ -103,49 +121,71 @@ const playable = Boolean(track.src && track.durationSec);
       };
       prepare();
 
-      const typed = caption.querySelector<HTMLElement>('#mix-desc-typed');
+      // Une phrase par bloc, tapées l'une après l'autre, effacées en sens inverse.
+      const lines = [...caption.querySelectorAll<HTMLElement>('.mix-line')].map((el) => ({
+        typed: el.querySelector<HTMLElement>('.mix-line-typed')!,
+        el,
+        text: el.dataset.text || '',
+      }));
       const caret = caption.querySelector<HTMLElement>('.mix-caret');
-      if (!typed) return;
-      const text = (caption.querySelector('.sr-only')?.textContent || '').trim();
-      if (!text) {
+      if (!lines.length) {
         caption.hidden = true;
         return;
       }
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        typed.textContent = text;
+        lines.forEach((l) => (l.typed.textContent = l.text));
         caret?.remove();
         return;
       }
 
       const TYPE = 38;
-      const ERASE = 16;
+      const ERASE = 12;
+      const GAP = 650; // entre deux phrases
       const HOLD = 8000;
       const PAUSE = 4000;
       let timer = 0;
+      let line = 0;
       let index = 0;
       let erasing = false;
+      const moveCaret = () => caret && lines[line].typed.parentElement!.appendChild(caret);
+      moveCaret();
 
       const tick = () => {
         if (signal.aborted) return;
+        const cur = lines[line];
         if (erasing) {
           index -= 1;
-          typed.textContent = text.slice(0, Math.max(0, index));
-          if (index <= 0) {
-            erasing = false;
-            timer = window.setTimeout(tick, PAUSE);
+          cur.typed.textContent = cur.text.slice(0, Math.max(0, index));
+          if (index > 0) {
+            timer = window.setTimeout(tick, ERASE);
             return;
           }
-          timer = window.setTimeout(tick, ERASE);
+          if (line > 0) {
+            line -= 1;
+            index = lines[line].text.length;
+            moveCaret();
+            timer = window.setTimeout(tick, ERASE * 8);
+            return;
+          }
+          erasing = false;
+          timer = window.setTimeout(tick, PAUSE);
           return;
         }
         index += 1;
-        typed.textContent = text.slice(0, index);
-        if (index >= text.length) {
-          erasing = true;
-          timer = window.setTimeout(tick, HOLD);
+        cur.typed.textContent = cur.text.slice(0, index);
+        if (index < cur.text.length) {
+          timer = window.setTimeout(tick, TYPE);
           return;
         }
-        timer = window.setTimeout(tick, TYPE);
+        if (line < lines.length - 1) {
+          line += 1;
+          index = 0;
+          moveCaret();
+          timer = window.setTimeout(tick, GAP);
+          return;
+        }
+        erasing = true;
+        timer = window.setTimeout(tick, HOLD);
       };
 
       timer = window.setTimeout(tick, 700);
@@ -304,33 +344,37 @@ const playable = Boolean(track.src && track.durationSec);
     opacity: 0.24;
   }
 
-  /* ── Description au centre de l'œuvre ─────────────────────────────────── */
+  /* ── Description éclatée sur l'œuvre ──────────────────────────────────── */
   .mix-caption {
     position: fixed;
     inset: 73px 0 52px;
     z-index: 3;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
+    flex-direction: column;
+    justify-content: space-evenly;
+    padding: 1.5rem 0;
     pointer-events: none;
   }
 
-  .mix-desc {
-    max-width: 46ch;
-    margin: 0;
-    color: var(--wano-white);
-    font-size: clamp(0.9rem, 1.5vw, 1.1rem);
-    line-height: 1.8;
-    text-align: center;
-    white-space: pre-line;
-    opacity: 0.82;
-    text-shadow: 0 0 18px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
+  .mix-line {
+    position: relative;
+    max-width: min(34ch, 44vw);
+    margin: 0 0 0 var(--x);
+    transform: translateY(var(--dy));
+    color: var(--bf-turquoise);
+    font-size: clamp(0.76rem, 1.05vw, 0.9rem);
+    line-height: 1.7;
+    text-align: left;
+    text-shadow: 0 0 14px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
   }
+
+  /* La phrase complète, invisible, réserve sa place : rien ne bouge pendant la frappe. */
+  .mix-line-ghost { visibility: hidden; }
+  .mix-line-live { position: absolute; inset: 0; }
 
   .mix-caret {
     margin-left: 1px;
-    color: var(--wano-green);
+    color: var(--bf-turquoise);
   }
 
   .sr-only {
@@ -347,6 +391,7 @@ const playable = Boolean(track.src && track.durationSec);
 
   @media (max-width: 700px) {
     .mix-caption { inset: 65px 0 96px; }
+    .mix-line { margin-left: var(--xm); max-width: 78vw; }
   }
 
   /* ── Œuvre du labo en plein écran ─────────────────────────────────────── */
