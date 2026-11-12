@@ -82,6 +82,22 @@ export const tracks: Track[] = [
     asciiSeed: "theo-leo",
     lab: {"engine":"caustics","interaction":"attract","memory":"evaporate","palette":"iridescent","colors":{"seed":3471588312,"spread":1},"parameters":{"density":1,"speed":0.67,"chaos":1,"scale":0.31,"force":0.05,"persistence":0},"seed":4062327588},
   },
+  {
+    id: "bf-0005",
+    slug: "do-you-need-me-like-i-need-you",
+    title: "Do you need me like I need you ?",
+    artist: "Stach",
+    year: 2026,
+    type: "mix",
+    tags: ["mix"],
+    src: "https://audio.poisson.blue/mixes/do-you-need-me-like-i-need-you.mp3",
+    durationSec: 3662.89,
+    duration: "1:01:03",
+    desc: "Ethereal transmission carefully crafted by Stach.\n\nA slow-burning journey guiding us through different layers of sounds, taking our hand from deep within into the clear blue sky.\n\nA message of hope.\n\nWe do need that.",
+    manifesto: '',
+    asciiSeed: "do-you-need-me-like-i-need-you",
+    lab: {"engine":"tesseract","interaction":"repel","memory":"heal","palette":"infrared","colors":{"seed":1753773648,"spread":0.68},"parameters":{"density":0.46,"speed":0.36,"chaos":0.85,"scale":1,"force":1,"persistence":0.18},"seed":2908339300},
+  },
   // ── Nouveaux mixes : ajoutés ici par Script/bluefish_add_mix.mjs ──
 ];
 
