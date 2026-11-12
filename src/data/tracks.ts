@@ -86,7 +86,7 @@ export const tracks: Track[] = [
     id: "bf-0005",
     slug: "do-you-need-me-like-i-need-you",
     title: "Do you need me like I need you ?",
-    artist: "Stach",
+    artist: "Gardair",
     year: 2026,
     type: "mix",
     tags: ["mix"],
