@@ -169,6 +169,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     }
 
     function goToMenu() {
+      // Geste de l'utilisateur : la radio peut démarrer (cas du retour direct, sans saisie du nom).
+      (window as any).bfPlayer?.start();
       navigate('/menu');
     }
 
@@ -309,7 +311,15 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       { signal },
     );
 
-    startNewFlow();
+    // Déjà venu et manifesto terminé dans ce navigateur : pas de demande de nom, accueil direct.
+    let storedName = '';
+    try {
+      storedName = (localStorage.getItem('bluefish.identity') || '').trim();
+    } catch {
+      // Stockage indisponible : parcours normal.
+    }
+    if (storedName && nameExists(storedName)) startReturningFlow(storedName);
+    else startNewFlow();
     });
   </script>
 </BaseLayout>
