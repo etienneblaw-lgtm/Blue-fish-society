@@ -52,8 +52,12 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       'But we also share thoughts and perspectives that we find interesting.',
       'Formats may vary depending on the mood.',
       'We also send an email whenever a new episode is released.',
-      'Enter your mail to join The Society :)',
+      '',
+      '[ UNDER CONSTRUCTION ] Subscriptions open soon.',
     ];
+    // Inscription en pause : le formulaire reste caché tant que l'envoi n'est pas branché.
+    // Pour le rouvrir : remettre la ligne « Enter your mail to join The Society :) » et passer à true.
+    const SUBSCRIPTIONS_OPEN = false;
     let skipCurrentLine = false;
     let typewriterFinished = false;
 
@@ -82,6 +86,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       typewriterFinished = true;
       document.removeEventListener('keydown', skipTypewriter);
       document.removeEventListener('pointerdown', skipTypewriter);
+      if (!SUBSCRIPTIONS_OPEN) return;
       form.hidden = false;
       emailInput.focus();
     }

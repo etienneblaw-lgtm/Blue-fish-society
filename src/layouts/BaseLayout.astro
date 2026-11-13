@@ -1,5 +1,8 @@
 ---
 import { ClientRouter } from 'astro:transitions';
+// Police servie par le site lui-même (plus d'appel à Google Fonts).
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/700.css';
 import '@/styles/global.css';
 import RadioPlayer from '@/components/RadioPlayer.astro';
 
@@ -12,13 +15,13 @@ interface Props {
 
 const {
   title = 'Bluefish Society',
-  description = 'Radio d archives. Galerie ASCII de mixes audio.',
+  description = 'An archive radio. A gallery of mixes, each one living in its own piece of generative art.',
   entry = false,
 } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

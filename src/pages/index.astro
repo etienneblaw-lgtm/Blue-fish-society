@@ -7,18 +7,24 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     <section id="entry-screen" class="entry-screen" aria-label="Entrée Bluefish Society">
       <div class="entry-terminal" aria-live="polite">
         <div id="terminal-output" class="terminal-output"></div>
-        <div id="name-prompt" class="name-prompt" hidden>
+        <!-- Le prénom s'affiche dans .name-echo ; le vrai champ, invisible, couvre la ligne
+             pour capter le toucher et le clavier. Le curseur reste ainsi centré sous « Name ? ». -->
+        <form id="name-prompt" class="name-prompt" hidden novalidate>
+          <span id="name-echo" class="name-echo"></span>
           <input
             id="name-input"
             class="name-input"
             type="text"
-            size="1"
             maxlength="24"
-            autocomplete="name"
+            autocomplete="given-name"
+            autocapitalize="words"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="go"
             aria-label="Your name"
           />
-        </div>
-        <button id="continue-prompt" class="continue-prompt wano-hint" type="button" hidden>PRESS ENTER</button>
+        </form>
+        <button id="continue-prompt" class="continue-prompt wano-hint" type="button" hidden><span class="hint-desk">PRESS ENTER</span><span class="hint-touch">TAP TO CONTINUE</span></button>
         <span id="entry-cursor" class="inline-cursor wano-cursor" aria-hidden="true" hidden></span>
       </div>
     </section>
@@ -33,7 +39,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const output = document.getElementById('terminal-output');
     const namePrompt = document.getElementById('name-prompt');
     const nameInput = document.getElementById('name-input') as HTMLInputElement;
-    const entryCursor = document.getElementById('entry-cursor');
+    const nameEcho = document.getElementById('name-echo');    const entryCursor = document.getElementById('entry-cursor');
     const continuePrompt = document.getElementById('continue-prompt');
     const entryScreen = document.getElementById('entry-screen');
     const entryTerminal = document.querySelector('.entry-terminal');
@@ -121,20 +127,28 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       entryCursor.remove();
     }
 
+    // La suite de la phrase, invisible, réserve déjà sa place : la ligne ne glisse pas
+    // et aucun mot ne saute à la ligne pendant la frappe.
     function typeLine(text, speed = 28) {
       return new Promise((resolve) => {
         hideCursor();
         const line = appendLine();
-        const textNode = document.createElement('span');
-        line.append(textNode);
-        moveCursorTo(line);
+        const typed = document.createElement('span');
+        const rest = document.createElement('span');
+        rest.className = 'terminal-rest';
+        rest.setAttribute('aria-hidden', 'true');
+        line.append(typed, rest);
+        entryCursor.hidden = false;
+        line.insertBefore(entryCursor, rest);
         let index = 0;
         const tick = () => {
-          textNode.textContent = text.slice(0, index);
+          typed.textContent = text.slice(0, index);
+          rest.textContent = text.slice(index);
           index += 1;
           if (index <= text.length) wait(speed).then(tick);
           else {
             hideCursor();
+            rest.remove();
             resolve(line);
           }
         };
@@ -210,6 +224,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
     function handleContinue() {
       if (!canContinue) return;
+      canContinue = false;
       if (continueAction === 'manifesto') startManifesto();
       else goToMenu();
     }
@@ -222,14 +237,24 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     }
 
     async function startNewFlow() {
-      await typeLine('Welcome to the Blue Fish Society.');
+      // Sur mobile, le bloc monte dans le haut de l'écran : il reste visible au-dessus du clavier.
+      entryScreen.classList.add('is-asking');
+      await typeLine('Welcome to the Bluefish Society.');
       await typeLine('Name ?');
       namePrompt.hidden = false;
       moveCursorTo(namePrompt);
       isCollectingName = true;
-      nameInput.value = '';
-      nameInput.size = 1;
+      // Prénom déjà connu de ce navigateur : il est pré-rempli, Entrée suffit (ou on le corrige).
+      let known = '';
+      try {
+        known = (localStorage.getItem('bluefish.identity') || '').trim().slice(0, 24);
+      } catch {
+        // Stockage indisponible : champ vide.
+      }
+      nameInput.value = known;
+      nameEcho.textContent = known;
       nameInput.focus();
+      nameInput.setSelectionRange(known.length, known.length);
     }
 
     async function submitName() {
@@ -241,19 +266,21 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       setIdentity(name);
       rememberIdentity(name);
       hideCursor();
+      nameInput.blur();
       namePrompt.hidden = true;
+      entryScreen.classList.remove('is-asking');
       output.textContent = '';
       // Geste de l'utilisateur : le navigateur autorise le son, la radio démarre.
       (window as any).bfPlayer?.start();
       if (isKnown) await startReturningFlow(name);
       else {
-        await typeLine(`Welcome ${activeName}, please press Enter to continue`);
+        await typeLine(`Welcome ${activeName}.`);
         showContinue('manifesto');
       }
     }
 
     nameInput?.addEventListener('input', () => {
-      nameInput.size = Math.max(1, nameInput.value.length);
+      nameEcho.textContent = nameInput.value;
     });
 
     nameInput?.addEventListener('keydown', (event) => {
@@ -263,7 +290,17 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       }
     });
 
-    continuePrompt?.addEventListener('click', handleContinue);
+    // Certains claviers mobiles valident sans envoyer la touche Entrée.
+    namePrompt?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitName();
+    });
+
+    // Un toucher n'importe où : ouvre le clavier pendant la saisie, sinon continue.
+    entryScreen?.addEventListener('click', () => {
+      if (isCollectingName) nameInput.focus();
+      else handleContinue();
+    });
     document.addEventListener(
       'keydown',
       (event) => {
@@ -278,8 +315,14 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 </BaseLayout>
 
 <style>
+  /* svh : la hauteur réellement visible sur mobile, barre d'adresse comprise. */
+  .screen {
+    min-height: 100svh;
+  }
+
   .entry-screen {
     min-height: 100vh;
+    min-height: 100svh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -356,35 +399,94 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     display: none !important;
   }
 
+  /* Hors manifesto, une phrase trop longue se coupe en deux lignes équilibrées. */
+  .entry-terminal:not(.is-manifesto) .terminal-output :global(.terminal-line) {
+    text-wrap: balance;
+  }
+
+  .terminal-output :global(.terminal-rest) {
+    visibility: hidden;
+  }
+
   .name-prompt {
+    position: relative;
     display: block;
-    margin-top: 0.2rem;
+    margin: 0.2rem 0 0;
     min-height: 1.8em;
   }
 
+  .name-echo {
+    color: var(--wano-white);
+    white-space: pre;
+  }
+
+  /* Champ invisible posé sur toute la ligne : zone de toucher large, 16px mini contre le zoom iOS. */
   .name-input {
-    max-width: min(100%, 24ch);
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 3rem;
+    transform: translateY(-50%);
     border: 0;
     outline: 0;
     padding: 0;
     background: transparent;
-    color: var(--wano-white);
+    color: transparent;
     caret-color: transparent;
     font: inherit;
+    font-size: max(16px, 1em);
     text-align: center;
+    opacity: 0;
   }
 
   .name-input:focus {
     outline: 0;
   }
 
+  /* Le curseur ne prend aucune largeur : il se pose après le texte sans le décaler. */
   :global(.inline-cursor) {
-    display: inline-block;
+    position: relative;
+  }
+
+  :global(.inline-cursor)::before {
+    content: '\2060';
+  }
+
+  :global(.inline-cursor)::after {
+    content: '';
+    position: absolute;
+    left: 0.08em;
+    bottom: 0.12em;
     width: 0.55em;
     height: 1.1em;
-    margin-left: 0.08em;
     background: var(--wano-green);
-    vertical-align: text-bottom;
+  }
+
+  /* Champ vide : le curseur est pile au centre, sous « Name ? ». */
+  .name-echo:empty ~ :global(.inline-cursor)::after {
+    left: -0.275em;
+  }
+
+  .hint-touch {
+    display: none;
+  }
+
+  @media (hover: none) {
+    .hint-desk {
+      display: none;
+    }
+
+    .hint-touch {
+      display: inline;
+    }
+  }
+
+  @media (max-width: 700px), (hover: none) and (pointer: coarse) {
+    .entry-screen.is-asking {
+      align-items: flex-start;
+      padding-top: max(1rem, 22svh);
+    }
   }
 
   .continue-prompt {

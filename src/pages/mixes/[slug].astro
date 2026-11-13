@@ -53,6 +53,13 @@ const placed = lines.map((text, i) => {
     </div>
   )}
 
+  {hasLab && (
+    <div class="mix-heading" id="mix-heading">
+      <h1 aria-label={track.title} data-text={track.title}><span class="mix-heading-ghost" aria-hidden="true">{track.title}</span><span class="mix-heading-live" aria-hidden="true"></span></h1>
+      <p aria-label={`${track.artist}, ${track.year}`} data-text={`${track.artist} · ${track.year}`}><span class="mix-heading-ghost" aria-hidden="true">{track.artist} · {track.year}</span><span class="mix-heading-live" aria-hidden="true"></span></p>
+    </div>
+  )}
+
   {hasLab ? (
     <div class="mix-caption" id="mix-caption" data-slug={track.slug}>
       <span class="sr-only">{track.desc}</span>
@@ -109,6 +116,33 @@ const placed = lines.map((text, i) => {
         const { mode, slug: playingSlug, playing } = player().state();
         refresh({ slug: mode === 'mix' ? playingSlug : null, state: playing ? 'playing' : 'paused' });
       }
+    });
+
+    // Titre et artiste : tapés une fois à l'arrivée, puis ils restent affichés.
+    onPage('#mix-heading', (heading, { signal }) => {
+      const rows = [...heading.querySelectorAll<HTMLElement>('[data-text]')].map((el) => ({
+        live: el.querySelector<HTMLElement>('.mix-heading-live')!,
+        text: el.dataset.text || '',
+      }));
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        rows.forEach((row) => (row.live.textContent = row.text));
+        return;
+      }
+      let timer = 0;
+      let row = 0;
+      let index = 0;
+      const tick = () => {
+        if (signal.aborted || row >= rows.length) return;
+        index += 1;
+        rows[row].live.textContent = rows[row].text.slice(0, index);
+        if (index >= rows[row].text.length) {
+          row += 1;
+          index = 0;
+        }
+        timer = window.setTimeout(tick, index === 0 ? 220 : 32);
+      };
+      timer = window.setTimeout(tick, 250);
+      signal.addEventListener('abort', () => window.clearTimeout(timer), { once: true });
     });
 
     // Description : machine à écrire, puis effacement en typewriter inversé.
@@ -391,10 +425,47 @@ const placed = lines.map((text, i) => {
     opacity: 0.24;
   }
 
+  /* ── Titre et artiste, fixes en haut de l'œuvre ───────────────────────── */
+  .mix-heading {
+    position: fixed;
+    top: calc(73px + 1.1rem);
+    left: 7%;
+    right: 7%;
+    z-index: 3;
+    pointer-events: none;
+    text-shadow: 0 0 14px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
+  }
+
+  .mix-heading h1,
+  .mix-heading p {
+    position: relative;
+    margin: 0;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .mix-heading h1 {
+    color: var(--wano-white);
+    font-size: clamp(1rem, 1.5vw, 1.3rem);
+    line-height: 1.35;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .mix-heading p {
+    margin-top: 0.15rem;
+    color: var(--bf-turquoise);
+    font-size: clamp(0.8rem, 1.05vw, 0.9rem);
+    line-height: 1.5;
+  }
+
+  .mix-heading-ghost { visibility: hidden; }
+  .mix-heading-live { position: absolute; inset: 0; }
+
   /* ── Description éclatée sur l'œuvre ──────────────────────────────────── */
   .mix-caption {
     position: fixed;
-    inset: 73px 0 52px;
+    inset: calc(73px + 4.2rem) 0 52px;
     z-index: 3;
     pointer-events: none;
   }
@@ -464,7 +535,8 @@ const placed = lines.map((text, i) => {
   }
 
   @media (max-width: 700px) {
-    .mix-caption { inset: 65px 0 96px; }
+    .mix-heading { top: calc(90px + 0.9rem); left: 6%; right: 6%; }
+    .mix-caption { inset: calc(90px + 4.6rem) 0 96px; }
     .mix-caption {
       display: flex;
       flex-direction: column;

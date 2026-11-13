@@ -1,10 +1,16 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { tracks } from '@/data/tracks';
 
-const track = tracks.find(({ slug }) => slug === 'tirage-suspens');
-
-if (!track) throw new Error('Track tirage-suspens not found');
+// Prototype autonome : ses données fictives vivent ici, plus dans le catalogue des mixes.
+const track = {
+  id: 'bf-0001',
+  title: 'Tirage suspens',
+  artist: 'Etienne',
+  year: 2026,
+  src: '',
+  duration: '60:00',
+  manifesto: 'Une frequence suspendue. Un protocole d entree. Un fichier qui refuse de devenir contenu.',
+};
 ---
 
 <BaseLayout title="Bluefish Lab — Tirage suspens" description="Prototype d'expérience générative pour Tirage suspens." entry>
