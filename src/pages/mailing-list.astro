@@ -1,5 +1,10 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { features } from '@/data/features';
+
+// Section coupée : l'adresse renvoie vers le menu (voir src/data/features.ts).
+if (!features.mailingList) return Astro.redirect('/menu');
+const formOpen = features.mailingListForm;
 ---
 
 <BaseLayout
@@ -9,7 +14,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <main class="mailing-page wano-scroll">
     <a class="back-link" href="/menu">← BACK TO HOMEPAGE</a>
 
-    <section class="mailing-terminal" aria-labelledby="mailing-title">
+    <section class="mailing-terminal" data-form-open={formOpen ? "" : undefined} aria-labelledby="mailing-title">
       <h1 id="mailing-title" class="sr-only">Bluefish Society mailing list</h1>
       <div id="terminal-output" class="terminal-output" aria-live="polite"></div>
 
@@ -37,7 +42,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <script>
     import { onPage } from '@/lib/page';
 
-    onPage('.mailing-terminal', (_root, { signal, wait }) => {
+    onPage('.mailing-terminal', (root, { signal, wait }) => {
     const output = document.getElementById('terminal-output');
     const form = document.getElementById('subscribe-form');
     const emailInput = document.getElementById('email');
@@ -52,12 +57,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       'But we also share thoughts and perspectives that we find interesting.',
       'Formats may vary depending on the mood.',
       'We also send an email whenever a new episode is released.',
-      '',
-      '[ UNDER CONSTRUCTION ] Subscriptions open soon.',
     ];
-    // Inscription en pause : le formulaire reste caché tant que l'envoi n'est pas branché.
-    // Pour le rouvrir : remettre la ligne « Enter your mail to join The Society :) » et passer à true.
-    const SUBSCRIPTIONS_OPEN = false;
+    // Interrupteur dans src/data/features.ts (mailingListForm).
+    const SUBSCRIPTIONS_OPEN = root.hasAttribute('data-form-open');
+    lines.push(...(SUBSCRIPTIONS_OPEN ? ['Enter your mail to join The Society :)'] : ['', '[ UNDER CONSTRUCTION ] Subscriptions open soon.']));
     let skipCurrentLine = false;
     let typewriterFinished = false;
 

@@ -2,6 +2,10 @@
 import ArchiveOrnament from '@/components/ArchiveOrnament.astro';
 import { articlePreviews } from '@/data/articles';
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { features } from '@/data/features';
+
+// Section coupée : l'adresse renvoie vers le menu (voir src/data/features.ts).
+if (!features.articles) return Astro.redirect('/menu');
 ---
 
 <BaseLayout title="Bluefish Society — Articles" description="Texts that we feel. Newsletter archives.">

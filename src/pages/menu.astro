@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import BrandFish from '@/components/BrandFish.astro';
+import { features } from '@/data/features';
 ---
 
 <BaseLayout title="Bluefish Society — Menu">
@@ -35,10 +36,18 @@ import BrandFish from '@/components/BrandFish.astro';
             <span class="module-name">MANIFESTO</span>
             <span class="module-desc">Discover the vision behind Bluefish Society</span>
           </a>
-          <a class="module-row" href="/mailing-list">
-            <span class="module-name">MAILING LIST</span>
-            <span class="module-desc">2 to 3 transmissions per year. Under construction.</span>
-          </a>
+          {features.mailingList && (
+            <a class="module-row" href="/mailing-list">
+              <span class="module-name">MAILING LIST</span>
+              <span class="module-desc">2 to 3 transmissions per year.</span>
+            </a>
+          )}
+          {features.articles && (
+            <a class="module-row" href="/articles">
+              <span class="module-name">ARTICLES</span>
+              <span class="module-desc">Texts that we feel. Newsletter archives.</span>
+            </a>
+          )}
           <a class="module-row" href="https://t.me/bfscty" target="_blank" rel="noreferrer">
             <span class="module-name">CONTACT US ON TELEGRAM</span>
             <span class="module-desc">Talk to us, share your music, or anything else.</span>
