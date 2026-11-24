@@ -29,7 +29,35 @@ const rand = () => {
   return seed / 2 ** 32;
 };
 const cols = Math.max(1, Math.ceil(lines.length / 2));
-const placed = lines.map((text, i) => {
+
+// Disposition « mirror » : lignes par paires en miroir gauche / droite, qui se resserrent vers
+// le centre en descendant (forme de V). Nombre impair : la ligne seule est centrée, juste avant
+// la dernière paire. Aucun hasard : la page est toujours identique.
+function mirrorLayout(all: string[]) {
+  const rows: string[][] = [];
+  let i = 0;
+  while (i < all.length) {
+    const left = all.length - i;
+    if (left === 1 || (left === 3 && all.length % 2 === 1)) rows.push([all[i++]]);
+    else rows.push([all[i++], all[i++]]);
+  }
+  const last = Math.max(1, rows.length - 1);
+  return rows.flatMap((row, r) => {
+    const t = r / last;
+    const top = (5 + t * 72).toFixed(1);
+    const inset = (7 + t * 27).toFixed(1);
+    const xm = (6 + t * 16).toFixed(1); // mobile : retrait depuis le bord, même progression
+    if (row.length === 1) {
+      return [{ text: row[0], side: 'center', style: `left:50%;top:${top}%;--dy:0rem;--xm:0%` }];
+    }
+    return [
+      { text: row[0], side: 'left', style: `left:${inset}%;top:${top}%;--dy:0rem;--xm:${xm}%` },
+      { text: row[1], side: 'right', style: `right:${inset}%;top:${top}%;--dy:0rem;--xm:${xm}%` },
+    ];
+  });
+}
+
+const placed = track.captionLayout === 'mirror' ? mirrorLayout(lines) : lines.map((text, i) => {
   const col = Math.floor(i / 2);
   const bottom = i % 2 === 1;
   const jx = (rand() - 0.5) * 6;
@@ -40,7 +68,7 @@ const placed = lines.map((text, i) => {
   const lastCol = cols > 1 && col === cols - 1;
   const hx = lastCol ? `right:${(7 + jx).toFixed(1)}%` : `left:${(7 + (col / Math.max(1, cols - 1)) * 50 + jx).toFixed(1)}%`;
   const vy = bottom ? `bottom:${(12 + jy).toFixed(1)}%` : `top:${(10 + jy).toFixed(1)}%`;
-  return { text, style: `${hx};${vy};--dy:${dy.toFixed(2)}rem;--xm:${xm.toFixed(1)}%` };
+  return { text, side: 'left', style: `${hx};${vy};--dy:${dy.toFixed(2)}rem;--xm:${xm.toFixed(1)}%` };
 });
 ---
 
@@ -62,10 +90,10 @@ const placed = lines.map((text, i) => {
   )}
 
   {hasLab ? (
-    <div class="mix-caption" id="mix-caption" data-slug={track.slug}>
+    <div class="mix-caption" id="mix-caption" data-slug={track.slug} data-layout={track.captionLayout ?? 'columns'}>
       <span class="sr-only">{track.desc}</span>
       {placed.map((line) => (
-        <p class="mix-line" style={line.style} data-text={line.text} aria-hidden="true"><span class="mix-line-ghost">{line.text}</span><span class="mix-line-live"><span class="mix-line-typed"></span></span></p>
+        <p class:list={['mix-line', `is-${line.side}`]} style={line.style} data-text={line.text} aria-hidden="true"><span class="mix-line-ghost">{line.text}</span><span class="mix-line-live"><span class="mix-line-typed"></span></span></p>
       ))}
       <span class="mix-caret wano-cursor" aria-hidden="true"></span>
     </div>
@@ -473,13 +501,22 @@ const placed = lines.map((text, i) => {
 
   .mix-line {
     position: absolute;
-    max-width: min(34ch, 40vw);
+    max-width: min(30ch, 38vw);
     margin: 0;
     color: var(--bf-turquoise);
-    font-size: clamp(0.76rem, 1.05vw, 0.9rem);
-    line-height: 1.7;
+    font-size: clamp(0.98rem, 1.5vw, 1.3rem);
+    font-weight: 700;
+    line-height: 1.55;
     text-align: left;
     text-shadow: 0 0 14px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
+  }
+
+  .mix-line.is-center { transform: translateX(-50%); }
+
+  /* Miroir : lignes plus larges pour ne pas laisser un mot seul, ce qui casserait la symétrie. */
+  .mix-caption[data-layout='mirror'] .mix-line {
+    max-width: min(42ch, 42vw);
+    text-wrap: balance;
   }
 
   .mix-gate {
@@ -548,9 +585,12 @@ const placed = lines.map((text, i) => {
       position: relative;
       inset: auto !important;
       max-width: 78vw;
+      font-size: 1rem;
       margin-left: var(--xm);
       transform: translateY(var(--dy));
     }
+    .mix-line.is-right { align-self: flex-end; margin-left: 0; margin-right: var(--xm); }
+    .mix-line.is-center { align-self: center; margin-left: 0; transform: none; }
   }
 
   /* ── Œuvre du labo en plein écran ─────────────────────────────────────── */

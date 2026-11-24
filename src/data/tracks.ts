@@ -22,13 +22,15 @@ export interface Track {
   asciiSeed: string;
   /** Recette du laboratoire (COPY CONFIG). Si présente, la page du mix affiche l'œuvre générative. */
   lab?: LabRecipe;
+  /** Disposition du texte sur l'œuvre : colonnes de deux (défaut) ou « mirror » (paires en miroir, forme de V). */
+  captionLayout?: 'columns' | 'mirror';
 }
 
 export const tracks: Track[] = [
   {
     id: "bf-0004",
     slug: "theo-leo",
-    title: "Théo Léo",
+    title: "Weirdoove Greido",
     artist: "Théo Léo",
     year: 2026,
     type: "mix",
@@ -39,6 +41,7 @@ export const tracks: Track[] = [
     desc: "Bouncy journey put together by Théo.\n\nIt is like Mr. Groove meets Mr. Weird.\n\nAnd then they have a baby.\n\nAnd well, you're listening to it.\n\nHow should we call it?\n\nWeirdoove? Greido?",
     manifesto: '',
     asciiSeed: "theo-leo",
+    captionLayout: "mirror",
     lab: {"engine":"caustics","interaction":"attract","memory":"evaporate","palette":"iridescent","colors":{"seed":3471588312,"spread":1},"parameters":{"density":1,"speed":0.67,"chaos":1,"scale":0.31,"force":0.05,"persistence":0},"seed":4062327588},
   },
   {
