@@ -1,6 +1,8 @@
 ---
 import type { Track } from '@/data/tracks';
 import { genTrackArt } from '@/lib/ascii';
+import fs from 'node:fs';
+import path from 'node:path';
 
 interface Props {
   track: Track;
@@ -8,7 +10,10 @@ interface Props {
 }
 
 const { track, index } = Astro.props;
-const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
+// Vignette : capture de l'œuvre du labo (Script/bluefish_mix_covers.mjs). Sans capture, art ASCII.
+const coverPath = `covers/${track.slug}.webp`;
+const cover = fs.existsSync(path.join(process.cwd(), 'public', coverPath)) ? `/${coverPath}` : null;
+const art = cover ? '' : genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
 ---
 
 <article class:list={['track-card', `track-${track.type}`]} data-track-card data-track-id={track.id} data-track-slug={track.slug} data-track-title={track.title} data-track-artist={track.artist} data-track-src={track.src} data-track-tags={track.tags.join(' ')} data-track-meta={`${track.year} · ${track.type} · ${track.tags.join(', ')}`}>
@@ -16,7 +21,7 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
   <div class="card-art" aria-hidden="true">
     <div class="art-register">BF/{String(index + 1).padStart(3, '0')}</div>
     <div class="type-tag">{track.type}</div>
-    <pre>{art}</pre>
+    {cover ? <img class="cover" src={cover} alt="" loading={index < 6 ? 'eager' : 'lazy'} decoding="async" width="800" height="832" /> : <pre>{art}</pre>}
     <div class="wave">
       {Array.from({ length: 18 }).map((_, i) => <span style={`--i:${i}`}></span>)}
     </div>
@@ -95,6 +100,22 @@ const art = genTrackArt(`${track.id}-${track.asciiSeed}`, track.type, 30, 58);
   }
 
   .track-card.playing .card-art pre { opacity: 1; }
+
+  .card-art .cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.85;
+    transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+  }
+
+  .track-card:hover .card-art .cover,
+  .track-card.playing .card-art .cover {
+    opacity: 1;
+    transform: scale(1.04);
+  }
 
   .art-register,
   .type-tag,
