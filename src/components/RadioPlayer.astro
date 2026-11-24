@@ -114,6 +114,9 @@ const playable = tracks
   let current: PlayerTrack | null = null;
   let blocked = false; // le navigateur a refusé de lancer le son sans geste
   let clockOffsetMs = 0;
+  let lastResync = 0; // dernier saut vers le direct, pour ne pas enchaîner les sauts sur réseau lent
+  let loadToken = 0; // un saut différé n'est appliqué que s'il vient du dernier chargement demandé
+  let dragRatio: number | null = null; // position affichée pendant qu'on tient le bateau
 
   audio.volume = Math.min(1, Math.max(0, prefs.volume));
   audio.muted = prefs.muted;
@@ -150,11 +153,24 @@ const playable = tracks
   async function loadAndPlay(track: PlayerTrack, startAt: number) {
     current = track;
     const safeStart = Math.max(0, Math.min(startAt, track.durationSec - 0.3));
+    const token = ++loadToken;
     if (!sameSource(track)) {
       audio.src = track.src;
       audio.load();
+      // Safari iOS ignore un saut demandé avant les métadonnées : on le refait dès qu'elles arrivent,
+      // avant que le moindre son ne sorte.
+      if (safeStart > 1) {
+        audio.addEventListener(
+          'loadedmetadata',
+          () => {
+            if (token === loadToken && Math.abs(audio.currentTime - safeStart) > 1) audio.currentTime = safeStart;
+          },
+          { once: true },
+        );
+      }
     }
-    audio.currentTime = safeStart; // avant les métadonnées : devient la position de départ
+    audio.currentTime = safeStart; // Chrome et Firefox : devient la position de départ
+    lastResync = Date.now();
     try {
       await audio.play();
       blocked = false;
@@ -261,7 +277,7 @@ const playable = tracks
       return;
     }
     const total = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : current.durationSec;
-    const position = Math.min(audio.currentTime, total);
+    const position = dragRatio !== null ? dragRatio * total : Math.min(audio.currentTime, total);
     const ratio = total > 0 ? Math.min(1, Math.max(0, position / total)) : 0;
     el.fill.style.width = `${ratio * 100}%`;
     el.bar.style.setProperty('--p', String(ratio));
@@ -280,13 +296,20 @@ const playable = tracks
 
   // ── Surveillance de la diffusion ────────────────────────────────────────────
   // Toutes les 5 s en mode radio : si on a décroché (coupure réseau, onglet gelé), on se recale.
+  // Sur mobile, chaque saut relance une mise en mémoire : on tolère 20 s de retard et on attend
+  // 60 s entre deux sauts, sinon un réseau lent enchaîne saut, chargement, retard, saut...
   window.setInterval(() => {
-    if (mode !== 'radio' || audio.paused || blocked) return;
+    if (mode !== 'radio' || audio.paused || blocked || audio.seeking) return;
     const np = nowPlaying(tracks, nowSec());
     if (!np) return;
     if (!current || np.item.id !== current.id) {
       tuneIn();
-    } else if (Math.abs(audio.currentTime - np.offsetSec) > 4 && audio.readyState >= 3) {
+    } else if (
+      Math.abs(audio.currentTime - np.offsetSec) > 20 &&
+      audio.readyState >= 3 &&
+      Date.now() - lastResync > 60_000
+    ) {
+      lastResync = Date.now();
       audio.currentTime = Math.min(np.offsetSec, current.durationSec - 0.3);
     }
   }, 5000);
@@ -324,11 +347,21 @@ const playable = tracks
   // Barre glissable : on attrape le bateau et on déplace la position du mix.
   let dragging = false;
 
-  function seekFromClientX(clientX: number) {
-    if (mode !== 'mix' || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+  // Pendant le glissement, seul le bateau bouge. Le vrai saut part au lâcher : un saut par geste,
+  // pas cinquante. Sur mobile, chaque saut annule le chargement en cours et en relance un.
+  function previewFromClientX(clientX: number) {
+    if (mode !== 'mix' || !current) return;
     const rect = el.bar.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    audio.currentTime = ratio * audio.duration;
+    dragRatio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    renderProgress();
+  }
+
+  function commitSeek() {
+    if (dragRatio === null || !current) return;
+    const total = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : current.durationSec;
+    const target = Math.min(dragRatio * total, total - 0.3);
+    dragRatio = null;
+    audio.currentTime = target;
     renderProgress();
   }
 
@@ -341,15 +374,21 @@ const playable = tracks
     } catch {
       // capture non disponible : le glissement reste possible dans la barre
     }
-    seekFromClientX(event.clientX);
+    previewFromClientX(event.clientX);
   });
   el.bar.addEventListener('pointermove', (event) => {
     if (!dragging) return;
-    seekFromClientX(event.clientX);
+    previewFromClientX(event.clientX);
   });
   const stopDrag = (event: PointerEvent) => {
     if (!dragging) return;
     dragging = false;
+    if (event.type === 'pointercancel') {
+      dragRatio = null;
+      renderProgress();
+    } else {
+      commitSeek();
+    }
     try {
       if (el.bar.hasPointerCapture(event.pointerId)) el.bar.releasePointerCapture(event.pointerId);
     } catch {
