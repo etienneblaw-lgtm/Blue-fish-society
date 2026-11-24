@@ -9,6 +9,7 @@ export interface Track {
   artist: string;
   year: number;
   type: TrackType;
+  /** Genres musicaux en minuscules (ex. "deep-house"). Chaque genre devient un filtre dans /tracks. */
   tags: string[];
   /** URL du MP3 sur R2. Vide = pas d'audio (le mix reste hors radio). */
   src: string;
@@ -31,11 +32,11 @@ export const tracks: Track[] = [
     artist: "Théo Léo",
     year: 2026,
     type: "mix",
-    tags: ["mix"],
+    tags: ["electro", "breaks"],
     src: "https://audio.poisson.blue/mixes/theo-leo.mp3",
     durationSec: 4914.88,
     duration: "1:21:55",
-    desc: "Lorem Ipsum",
+    desc: "Bouncy journey put together by Théo.\n\nIt is like Mr. Groove meets Mr. Weird.\n\nAnd then they have a baby.\n\nAnd well, you're listening to it.\n\nHow should we call it?\n\nWeirdoove? Greido?",
     manifesto: '',
     asciiSeed: "theo-leo",
     lab: {"engine":"caustics","interaction":"attract","memory":"evaporate","palette":"iridescent","colors":{"seed":3471588312,"spread":1},"parameters":{"density":1,"speed":0.67,"chaos":1,"scale":0.31,"force":0.05,"persistence":0},"seed":4062327588},
@@ -47,7 +48,7 @@ export const tracks: Track[] = [
     artist: "Gardair",
     year: 2026,
     type: "mix",
-    tags: ["mix"],
+    tags: ["deep-house", "minimal"],
     src: "https://audio.poisson.blue/mixes/do-you-need-me-like-i-need-you.mp3",
     durationSec: 3662.89,
     duration: "1:01:03",
@@ -59,10 +60,10 @@ export const tracks: Track[] = [
   // ── Nouveaux mixes : ajoutés ici par Script/bluefish_add_mix.mjs ──
 ];
 
-export const filters = [
+/** Filtres de /tracks : ALL puis chaque genre présent dans les mixes, par ordre alphabétique. */
+export const filters: [string, string][] = [
   ['all', 'ALL'],
-  ['release', 'RELEASES'],
-  ['live', 'LIVE'],
-  ['unreleased', 'UNRELEASED'],
-  ['mix', 'MIXES'],
-] as const;
+  ...[...new Set(tracks.flatMap((track) => track.tags))]
+    .sort()
+    .map((tag): [string, string] => [tag, tag.toUpperCase()]),
+];

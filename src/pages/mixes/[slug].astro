@@ -21,7 +21,8 @@ const playable = Boolean(track.src && track.durationSec);
 // Description sur l'œuvre : une phrase par bloc, lues en colonnes de deux.
 // Phrase 1 en haut à gauche, 2 en bas à gauche, 3 en haut à droite, 4 en bas à droite, etc.
 // Sur mobile : empilées. Le léger décalage vient du slug : stable d'une visite à l'autre.
-const lines = paragraphs.flatMap((p) => p.split(/(?<=[.!?…])\s+(?=\S)/)).map((l) => l.trim()).filter(Boolean);
+// Pas de coupure après une abréviation (« Mr. Groove » reste sur une ligne).
+const lines = paragraphs.flatMap((p) => p.split(/(?<=[.!?…])(?<!\b(?:Mr|Mrs|Ms|Dr|St|Jr|vs)\.)\s+(?=\S)/)).map((l) => l.trim()).filter(Boolean);
 let seed = [...track.slug].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 const rand = () => {
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;

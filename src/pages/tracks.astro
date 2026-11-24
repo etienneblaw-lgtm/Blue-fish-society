@@ -65,8 +65,8 @@ import { filters, tracks } from '@/data/tracks';
         let visibleCount = 0;
         cards.forEach((card) => {
           const haystack = `${card.dataset.trackTitle} ${card.dataset.trackArtist} ${card.dataset.trackMeta}`.toLowerCase();
-          const type = card.dataset.trackMeta!.split(' · ')[1];
-          const visible = (currentFilter === 'all' || type === currentFilter) && (!query || haystack.includes(query));
+          const tags = (card.dataset.trackTags || '').split(' ');
+          const visible = (currentFilter === 'all' || tags.includes(currentFilter)) && (!query || haystack.includes(query));
           card.hidden = !visible;
           if (visible) visibleCount += 1;
         });
